@@ -3,7 +3,7 @@
 #include <msclr\marshal.h>
 #include <msclr\marshal_cppstd.h>
 #include "ManagedIStream.h"
-using namespace ScreenRecorderLib;
+using namespace ScreenRecorderLibNew;
 using namespace nlohmann;
 
 Recorder::Recorder(RecorderOptions^ options)
@@ -16,6 +16,14 @@ Recorder::Recorder(RecorderOptions^ options)
 		options->SourceOptions = SourceOptions::MainMonitor;
 	}
 	SetOptions(options);
+}
+
+void Recorder::SetHwnd(IntPtr hwnd)
+{
+	if (m_Rec)
+	{
+		m_Rec->SetHwnd((HWND)hwnd.ToPointer());
+	}
 }
 
 void Recorder::SetOptions(RecorderOptions^ options) {
@@ -60,8 +68,8 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			}
 			switch (options->SnapshotOptions->SnapshotFormat)
 			{
-				case ImageFormat::BMP:
-					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatBmp);
+				case ImageFormat::PNG:
+					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatPng);
 					break;
 				case ImageFormat::JPEG:
 					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatJpeg);
@@ -70,8 +78,8 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatTiff);
 					break;
 				default:
-				case ImageFormat::PNG:
-					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatPng);
+				case ImageFormat::BMP:
+					snapshotOptions->SetSnapshotSaveFormat(GUID_ContainerFormatBmp);
 					break;
 			}
 			m_Rec->SetSnapshotOptions(snapshotOptions);
@@ -88,7 +96,10 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 				outputOptions->SetFrameSize(SIZE{ (long)round(options->OutputOptions->OutputFrameSize->Width),(long)round(options->OutputOptions->OutputFrameSize->Height) });
 			}
 			outputOptions->SetRecorderMode(static_cast<RecorderModeInternal>(options->OutputOptions->RecorderMode));
+			outputOptions->SetIsPreviewOnly(static_cast<bool>(options->OutputOptions->IsPreviewOnly));
+			outputOptions->SetIsCustomSelectedArea(static_cast<bool>(options->OutputOptions->IsCustomSelectedArea));
 			outputOptions->SetStretch(static_cast<TextureStretchMode>(options->OutputOptions->Stretch));
+			outputOptions->SetScaledScreenSize(SIZE{ (long)round(options->OutputOptions->OutputScaledScreenSize->Width),(long)round(options->OutputOptions->OutputScaledScreenSize->Height) });
 			m_Rec->SetOutputOptions(outputOptions);
 		}
 		if (options->AudioOptions) {
@@ -160,7 +171,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 	}
 }
 
-DynamicOptionsBuilder^ ScreenRecorderLib::Recorder::GetDynamicOptionsBuilder()
+DynamicOptionsBuilder^ ScreenRecorderLibNew::Recorder::GetDynamicOptionsBuilder()
 {
 	return gcnew DynamicOptionsBuilder(this);
 }
@@ -572,6 +583,7 @@ void Recorder::SetupCallbacks() {
 	CreateStatusCallback();
 	CreateSnapshotCallback();
 	CreateFrameNumberCallback();
+	CreateAudioVolumeCallback();
 }
 
 void Recorder::ClearCallbacks() {
@@ -584,7 +596,9 @@ void Recorder::ClearCallbacks() {
 	if (_snapshotDelegateGcHandler.IsAllocated)
 		_snapshotDelegateGcHandler.Free();
 	if (_frameNumberDelegateGcHandler.IsAllocated)
-		_frameNumberDelegateGcHandler.Free();
+		_frameNumberDelegateGcHandler.Free();\
+	if (_audioVolumeDelegateGcHandler.IsAllocated)
+		_audioVolumeDelegateGcHandler.Free();
 }
 
 HRESULT Recorder::CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedSource, _Out_ RECORDING_SOURCE* pNativeSource)
@@ -615,7 +629,8 @@ HRESULT Recorder::CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedS
 		if (!String::IsNullOrEmpty(displaySource->DeviceName)) {
 			std::wstring deviceName = msclr::interop::marshal_as<std::wstring>(displaySource->DeviceName);
 			CComPtr<IDXGIOutput> output;
-			hr = GetOutputForDeviceName(deviceName, &output);
+			int index = 0;
+			hr = GetOutputForDeviceName(deviceName, &output, &index);
 			if (SUCCEEDED(hr)) {
 				DXGI_OUTPUT_DESC desc;
 				hr = output->GetDesc(&desc);
@@ -807,6 +822,13 @@ void Recorder::CreateStatusCallback() {
 	CallbackStatusChangedFunction cb = static_cast<CallbackStatusChangedFunction>(ip.ToPointer());
 	m_Rec->RecordingStatusChangedCallback = cb;
 }
+void Recorder::CreateAudioVolumeCallback() {
+	InternalAudioVolumeCallbackDelegate^ fp = gcnew InternalAudioVolumeCallbackDelegate(this, &Recorder::AudioVolumeChanged);
+	_audioVolumeDelegateGcHandler = GCHandle::Alloc(fp);
+	IntPtr ip = Marshal::GetFunctionPointerForDelegate(fp);
+	CallbackAudioVolumeChangedFunction cb = static_cast<CallbackAudioVolumeChangedFunction>(ip.ToPointer());
+	m_Rec->AudioRecordingVolumeChangedCallback = cb;
+}
 void Recorder::CreateSnapshotCallback() {
 	InternalSnapshotCallbackDelegate^ fp = gcnew InternalSnapshotCallbackDelegate(this, &Recorder::EventSnapshotCreated);
 	_snapshotDelegateGcHandler = GCHandle::Alloc(fp);
@@ -853,7 +875,7 @@ void Recorder::EventStatusChanged(int status)
 	OnStatusChanged(this, gcnew RecordingStatusEventArgs(recorderStatus));
 }
 
-void ScreenRecorderLib::Recorder::EventSnapshotCreated(std::wstring str)
+void ScreenRecorderLibNew::Recorder::EventSnapshotCreated(std::wstring str)
 {
 	OnSnapshotSaved(this, gcnew SnapshotSavedEventArgs(gcnew String(str.c_str())));
 }
@@ -862,4 +884,9 @@ void Recorder::FrameNumberChanged(int newFrameNumber)
 {
 	OnFrameRecorded(this, gcnew FrameRecordedEventArgs(newFrameNumber));
 	CurrentFrameNumber = newFrameNumber;
+}
+
+void Recorder::AudioVolumeChanged(int volume)
+{
+	OnAudioVolumeChanged(this, gcnew AudioRecordingVolumeEventArgs(volume));
 }

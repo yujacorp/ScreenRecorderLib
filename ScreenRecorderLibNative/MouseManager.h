@@ -28,8 +28,6 @@ private:
 	static const UINT TRANSPARENT_BLACK = 0x00000000;
 	static const UINT OPAQUE_WHITE = 0xFFFFFFFF;
 	static const UINT OPAQUE_BLACK = 0xFF000000;
-	static const int NUMVERTICES = 6;
-	static const int BPP = 4;
 
 	ATL::CComPtr<ID3D11SamplerState> m_SamplerLinear;
 	ATL::CComPtr<ID3D11BlendState> m_BlendState;

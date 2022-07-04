@@ -747,3 +747,31 @@ void TextureManager::CleanRefs()
 		m_BlendState = nullptr;
 	}
 }
+ID3D11SamplerState* TextureManager::GetSamplerLinear()
+{
+	return m_SamplerLinear;
+}
+
+ID3D11VertexShader *TextureManager::GetVertexShader()
+{
+	return m_VertexShader;
+}
+
+
+ID3D11PixelShader *TextureManager::GetPixelShader()
+{
+	return m_PixelShader;
+}
+
+
+ID3D11InputLayout *TextureManager::GetInputLayout()
+{
+	return m_InputLayout;
+}
+
+
+ID3D11BlendState *TextureManager::GetBlendState()
+{
+	return m_BlendState;
+}
+

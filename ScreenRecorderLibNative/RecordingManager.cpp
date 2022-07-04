@@ -16,6 +16,11 @@
 #include "DynamicWait.h"
 #include "HighresTimer.h"
 #include "AudioPrefs.h"
+#include <evr.h>
+#include "OutputManager.h"
+#include "Resizer.h"
+
+#pragma comment(lib, "strmiids.lib")
 
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "D3D11.lib")
@@ -140,7 +145,7 @@ HRESULT RecordingManager::ConfigureOutputDir(_In_ std::wstring path) {
 		LPWSTR directory = (LPWSTR)dir.c_str();
 		PathRemoveFileSpecW(directory);
 		std::error_code ec;
-		if (std::filesystem::exists(directory) || std::filesystem::create_directories(directory, ec))
+		if (std::filesystem::exists(directory) || recorderMode == RecorderModeInternal::Preview || std::filesystem::create_directories(directory, ec))
 		{
 			LOG_DEBUG(L"Video output folder is ready");
 			m_OutputFolder = directory;
@@ -154,7 +159,7 @@ HRESULT RecordingManager::ConfigureOutputDir(_In_ std::wstring path) {
 			return E_FAIL;
 		}
 
-		if (recorderMode == RecorderModeInternal::Video || recorderMode == RecorderModeInternal::Screenshot) {
+		if (recorderMode == RecorderModeInternal::Video || recorderMode == RecorderModeInternal::Screenshot || recorderMode == RecorderModeInternal::Preview) {
 			wstring ext = recorderMode == RecorderModeInternal::Video ? m_EncoderOptions->GetVideoExtension() : m_SnapshotOptions->GetImageExtension();
 			LPWSTR pStrExtension = PathFindExtension(path.c_str());
 			if (pStrExtension == nullptr || pStrExtension[0] == 0)
@@ -194,6 +199,7 @@ HRESULT RecordingManager::BeginRecording(_In_opt_ std::wstring path) {
 }
 
 HRESULT RecordingManager::BeginRecording(_In_opt_ std::wstring path, _In_opt_ IStream *stream) {
+	m_DestRect = GetOutputOptions()->GetSourceRectangle();
 	if (m_IsRecording) {
 		if (m_IsPaused) {
 			m_IsPaused = false;
@@ -241,7 +247,7 @@ HRESULT RecordingManager::BeginRecording(_In_opt_ std::wstring path, _In_opt_ IS
 		m_OutputManager->Initialize(m_DxResources.Context, m_DxResources.Device, GetEncoderOptions(), GetAudioOptions(), GetSnapshotOptions(), GetOutputOptions());
 
 		result = StartRecorderLoop(m_RecordingSources, m_Overlays, stream);
-		if (RecordingStatusChangedCallback != nullptr && !m_IsDestructing) {
+		if (RecordingStatusChangedCallback != nullptr && !m_IsDestructing && !GetOutputOptions()->GetIsPreviewOnly()) {
 			RecordingStatusChangedCallback(STATUS_FINALIZING);
 		}
 		result.FinalizeResult = m_OutputManager->FinalizeRecording();
@@ -316,6 +322,7 @@ void RecordingManager::CleanupDxResources()
 {
 	SafeRelease(&m_DxResources.Context);
 	SafeRelease(&m_DxResources.Device);
+
 #if _DEBUG
 	if (m_DxResources.Debug) {
 		m_DxDebugMutex.lock();
@@ -401,6 +408,9 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 
 	CaptureStopOnExit stopCaptureOnExit(pCapture.get());
 
+	RECT DeskBounds;
+	UINT OutputCount;
+
 	RECT videoInputFrameRect{};
 	SIZE videoOutputFrameSize{};
 	RETURN_RESULT_ON_BAD_HR(hr = InitializeRects(pCapture->GetOutputSize(), &videoInputFrameRect, &videoOutputFrameSize), L"Failed to initialize frame rects");
@@ -410,10 +420,42 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 	else {
 		RETURN_RESULT_ON_BAD_HR(hr = m_OutputManager->BeginRecording(m_OutputFullPath, videoOutputFrameSize), L"Failed to initialize video sink writer");
 	}
+	int index = 0;
+	if (sources[0]->Type == RecordingSourceType::Display)
+	{
+		//Get the original display resolution of the monitor.
+		CComPtr<IDXGIOutput> pSelectedOutput = nullptr;
+		hr = GetOutputForDeviceName(sources[0]->SourcePath, &pSelectedOutput, &index);
+		DXGI_OUTPUT_DESC DesktopDesc;
+		pSelectedOutput->GetDesc(&DesktopDesc);
+		RECT desktopRes = DesktopDesc.DesktopCoordinates;
+
+		DetermineScalingParameters(desktopRes.right - desktopRes.left, desktopRes.bottom - desktopRes.top);
+		if (m_IsScalingEnabled)
+		{
+			DeskBounds.right = (m_DestRect.right * m_ScaledFrameWidth) / (desktopRes.right - desktopRes.left);
+			DeskBounds.bottom = (m_DestRect.bottom * m_ScaledFrameHeight) / (desktopRes.bottom - desktopRes.top);
+			DeskBounds.left = (m_DestRect.left * m_ScaledFrameWidth) / (desktopRes.right - desktopRes.left);
+			DeskBounds.top = (m_DestRect.top * m_ScaledFrameHeight) / (desktopRes.bottom - desktopRes.top);
+			m_OutputManager->SetScaleWidthAndHeight(m_ScaledFrameWidth, m_ScaledFrameHeight, m_IsScalingEnabled);
+		}
+		else
+		{
+			DeskBounds = m_DestRect;
+		}
+	}
+	else
+	{
+		DeskBounds = m_DestRect;
+	}
+
+	DUPL_RETURN Ret = m_OutputManager->InitOutput(m_previewWindowHandle, index, &OutputCount, &DeskBounds);
 
 	std::unique_ptr<AudioManager> pAudioManager = make_unique<AudioManager>();
 	std::unique_ptr<MouseManager> pMouseManager = make_unique<MouseManager>();
 	RETURN_RESULT_ON_BAD_HR(hr = pMouseManager->Initialize(m_DxResources.Context, m_DxResources.Device, GetMouseOptions()), L"Failed to initialize mouse manager");
+	
+	
 	SetViewPort(m_DxResources.Context, static_cast<float>(videoOutputFrameSize.cx), static_cast<float>(videoOutputFrameSize.cy));
 
 	if (recorderMode == RecorderModeInternal::Video) {
@@ -469,14 +511,16 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 	});
 	auto PrepareAndRenderFrame([&](CComPtr<ID3D11Texture2D> pTextureToRender, INT64 duration100Nanos)->HRESULT {
 		HRESULT renderHr = E_FAIL;
-		if (pPtrInfo) {
-			renderHr = pMouseManager->ProcessMousePointer(pTextureToRender, &pPtrInfo.value());
-			if (FAILED(renderHr)) {
-				_com_error err(renderHr);
-				LOG_ERROR(L"Error drawing mouse pointer: %s", err.ErrorMessage());
-				//We just log the error and continue if the mouse pointer failed to draw. If there is an error with DXGI, it will be handled on the next call to AcquireNextFrame.
-			}
-		}
+		//if (pPtrInfo) {
+		//	m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\before.png");
+		//	renderHr = pMouseManager->ProcessMousePointer(pTextureToRender, pPtrInfo);
+		//	m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\after.png");
+		//	if (FAILED(renderHr)) {
+		//		_com_error err(renderHr);
+		//		LOG_ERROR(L"Error drawing mouse pointer: %s", err.ErrorMessage());
+		//		//We just log the error and continue if the mouse pointer failed to draw. If there is an error with DXGI, it will be handled on the next call to AcquireNextFrame.
+		//	}
+		//}
 		if (IsValidRect(GetOutputOptions()->GetSourceRectangle())) {
 			RETURN_ON_BAD_HR(hr = InitializeRects(pCapture->GetOutputSize(), &videoInputFrameRect, nullptr));
 		}
@@ -498,17 +542,23 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 				}
 			}
 		}
-
-
+		//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\beforemodel.png");
+		m_OutputManager->SetMousePtrInfo(&pPtrInfo.value();
+		//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\aftermodel.png");
 		FrameWriteModel model{};
 		model.Frame = pTextureToRender;
 		model.Duration = duration100Nanos;
 		model.StartPos = lastFrameStartPos100Nanos;
 		model.Audio = pAudioManager->GrabAudioFrame();
+		m_OutputManager->SetDeviceId(sources[0]->ID);
 		RETURN_ON_BAD_HR(renderHr = m_EncoderResult = m_OutputManager->RenderFrame(model));
 		frameNr++;
 		if (RecordingFrameNumberChangedCallback != nullptr && !m_IsDestructing) {
 			RecordingFrameNumberChangedCallback(frameNr);
+		}
+		if (AudioRecordingVolumeChangedCallback != nullptr)
+		{
+			AudioRecordingVolumeChangedCallback(m_OutputManager->CurrentAudioVolume);
 		}
 		havePrematureFrame = false;
 		lastFrameStartPos100Nanos += duration100Nanos;
@@ -698,7 +748,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 				pPreviousFrameCopy.Release();
 			}
 			//Copy new frame to pPreviousFrameCopy
-			if (recorderMode == RecorderModeInternal::Video || recorderMode == RecorderModeInternal::Slideshow) {
+			if (recorderMode == RecorderModeInternal::Video || recorderMode == RecorderModeInternal::Slideshow || recorderMode == RecorderModeInternal::Preview) {
 				D3D11_TEXTURE2D_DESC desc;
 				pCurrentFrameCopy->GetDesc(&desc);
 				RETURN_RESULT_ON_BAD_HR(hr = m_DxResources.Device->CreateTexture2D(&desc, nullptr, &pPreviousFrameCopy), L"");
@@ -878,4 +928,139 @@ HRESULT RecordingManager::SaveTextureAsVideoSnapshot(_In_ ID3D11Texture2D *pText
 		}
 		}));
 	return hr;
+}
+
+void RecordingManager::DetermineScalingParameters(int originalWidth, int originalHeight)
+{
+	if (m_ScaledFrameWidth != 0 && m_ScaledFrameHeight != 0) {
+		m_ScaledFrameWidth = MakeEven(m_ScaledFrameWidth);
+		m_ScaledFrameHeight = MakeEven(m_ScaledFrameHeight);
+		m_IsScalingEnabled = true;
+	}
+	else if (m_ScaledFrameRatio != 1.0 && m_ScaledFrameRatio != 0) {
+		m_ScaledFrameWidth = MakeEven(static_cast<UINT32>(originalWidth * m_ScaledFrameRatio));
+		m_ScaledFrameHeight = MakeEven(static_cast<UINT32>(originalHeight * m_ScaledFrameRatio));
+		m_IsScalingEnabled = true;
+	}
+	else
+		m_IsScalingEnabled = false;
+}
+
+HRESULT SystemTransitionsExpectedErrors[] = {
+												DXGI_ERROR_DEVICE_REMOVED,
+												DXGI_ERROR_ACCESS_LOST,
+												static_cast<HRESULT>(WAIT_ABANDONED),
+												S_OK                                    // Terminate list with zero valued HRESULT
+};
+
+// These are the errors we expect from IDXGIOutput1::DuplicateOutput due to a transition
+HRESULT CreateDuplicationExpectedErrors[] = {
+												DXGI_ERROR_DEVICE_REMOVED,
+												static_cast<HRESULT>(E_ACCESSDENIED),
+												DXGI_ERROR_UNSUPPORTED,
+												DXGI_ERROR_SESSION_DISCONNECTED,
+												S_OK                                    // Terminate list with zero valued HRESULT
+};
+
+// These are the errors we expect from IDXGIOutputDuplication methods due to a transition
+HRESULT FrameInfoExpectedErrors[] = {
+										DXGI_ERROR_DEVICE_REMOVED,
+										DXGI_ERROR_ACCESS_LOST,
+										S_OK                                    // Terminate list with zero valued HRESULT
+};
+
+// These are the errors we expect from IDXGIAdapter::EnumOutputs methods due to outputs becoming stale during a transition
+HRESULT EnumOutputsExpectedErrors[] = {
+										  DXGI_ERROR_NOT_FOUND,
+										  S_OK                                    // Terminate list with zero valued HRESULT
+};
+
+_Post_satisfies_(return != DUPL_RETURN_SUCCESS)
+DUPL_RETURN ProcessFailure(_In_opt_ ID3D11Device * Device, _In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr, _In_opt_z_ HRESULT * ExpectedErrors)
+{
+	HRESULT TranslatedHr;
+
+	// On an error check if the DX device is lost
+	if (Device)
+	{
+		HRESULT DeviceRemovedReason = Device->GetDeviceRemovedReason();
+
+		switch (DeviceRemovedReason)
+		{
+			case DXGI_ERROR_DEVICE_REMOVED:
+			case DXGI_ERROR_DEVICE_RESET:
+			case static_cast<HRESULT>(E_OUTOFMEMORY):
+			{
+				// Our device has been stopped due to an external event on the GPU so map them all to
+				// device removed and continue processing the condition
+				TranslatedHr = DXGI_ERROR_DEVICE_REMOVED;
+				break;
+			}
+
+			case S_OK:
+			{
+				// Device is not removed so use original error
+				TranslatedHr = hr;
+				break;
+			}
+
+			default:
+			{
+				// Device is removed but not a error we want to remap
+				TranslatedHr = DeviceRemovedReason;
+			}
+		}
+	}
+	else
+	{
+		TranslatedHr = hr;
+	}
+
+	// Check if this error was expected or not
+	if (ExpectedErrors)
+	{
+		HRESULT *CurrentResult = ExpectedErrors;
+
+		while (*CurrentResult != S_OK)
+		{
+			if (*(CurrentResult++) == TranslatedHr)
+			{
+				return DUPL_RETURN_ERROR_EXPECTED;
+			}
+		}
+	}
+
+	// Error was not expected so display the message box
+	DisplayMsg(Str, Title, TranslatedHr);
+
+	return DUPL_RETURN_ERROR_UNEXPECTED;
+}
+
+void DisplayMsg(_In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr)
+{
+	if (SUCCEEDED(hr))
+	{
+		OutputDebugStringW(Str);
+		//MessageBoxW(nullptr, Str, Title, MB_OK);
+		return;
+	}
+
+	const UINT StringLen = (UINT)(wcslen(Str) + sizeof(" with HRESULT 0x########."));
+	wchar_t *OutStr = new wchar_t[StringLen];
+	if (!OutStr)
+	{
+		return;
+	}
+
+	INT LenWritten = swprintf_s(OutStr, StringLen, L"%s with 0x%X.", Str, hr);
+
+
+	if (LenWritten != -1)
+	{
+		OutputDebugStringW(OutStr);
+
+		//MessageBoxW(nullptr, OutStr, Title, MB_OK);
+	}
+
+	delete[] OutStr;
 }

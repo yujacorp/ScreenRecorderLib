@@ -1,6 +1,6 @@
 #pragma once
 using namespace System;
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 	public ref class AudioDevice {
 	public:
 		AudioDevice() {};

@@ -4,7 +4,7 @@
 #include <vcclr.h>
 #include <vector>
 #include <set>
-#include "../ScreenRecorderLibNative/Native.h"
+#include "../ScreenRecorderLibNativeNew/Native.h"
 #include "ManagedIStream.h"
 #include "Win32WindowEnumeration.h"
 #include "Coordinates.h"
@@ -22,8 +22,9 @@ delegate void InternalCompletionCallbackDelegate(std::wstring path, nlohmann::fi
 delegate void InternalErrorCallbackDelegate(std::wstring error, std::wstring path);
 delegate void InternalSnapshotCallbackDelegate(std::wstring path);
 delegate void InternalFrameNumberCallbackDelegate(int newFrameNumber);
+delegate void InternalAudioVolumeCallbackDelegate(int volume);
 
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 
 	ref class DynamicOptionsBuilder;
 
@@ -61,11 +62,13 @@ namespace ScreenRecorderLib {
 		void CreateStatusCallback();
 		void CreateSnapshotCallback();
 		void CreateFrameNumberCallback();
+		void CreateAudioVolumeCallback();
 		void EventComplete(std::wstring path, nlohmann::fifo_map<std::wstring, int> delays);
 		void EventFailed(std::wstring error, std::wstring path);
 		void EventStatusChanged(int status);
 		void EventSnapshotCreated(std::wstring str);
 		void FrameNumberChanged(int newFrameNumber);
+		void AudioVolumeChanged(int volume);
 		void SetupCallbacks();
 		void ClearCallbacks();
 		static HRESULT CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedSource, _Out_ RECORDING_SOURCE* pNativeSource);
@@ -82,6 +85,7 @@ namespace ScreenRecorderLib {
 		GCHandle _completedDelegateGcHandler;
 		GCHandle _snapshotDelegateGcHandler;
 		GCHandle _frameNumberDelegateGcHandler;
+		GCHandle _audioVolumeDelegateGcHandler;
 
 	internal:
 		void SetDynamicOptions(DynamicOptions^ options);
@@ -113,6 +117,7 @@ namespace ScreenRecorderLib {
 		void Resume();
 		void Stop();
 		void SetOptions(RecorderOptions^ options);
+		void SetHwnd(IntPtr handle);
 		/// <summary>
 		/// DynamicOptionsBuilder can be used to update a subset of options while a recording is in progress.
 		/// </summary>
@@ -132,6 +137,7 @@ namespace ScreenRecorderLib {
 		event EventHandler<RecordingStatusEventArgs^>^ OnStatusChanged;
 		event EventHandler<SnapshotSavedEventArgs^>^ OnSnapshotSaved;
 		event EventHandler<FrameRecordedEventArgs^>^ OnFrameRecorded;
+		event EventHandler<AudioRecordingVolumeEventArgs^>^ OnAudioVolumeChanged;
 	};
 
 	public ref class DynamicOptionsBuilder {

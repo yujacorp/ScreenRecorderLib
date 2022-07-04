@@ -1,10 +1,10 @@
 #pragma once
-#include "../ScreenRecorderLibNative/Native.h"
+#include "../ScreenRecorderLibNativeNew/Native.h"
 
 using namespace System;
 using namespace System::ComponentModel;
 
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 
 	public enum class RecorderApi {
 		///<summary>Desktop Duplication is supported on all Windows 8 and 10 versions. This API supports recording of screens.</summary>
@@ -27,7 +27,7 @@ namespace ScreenRecorderLib {
 			ID = Guid::NewGuid().ToString();
 			Stretch = StretchMode::Uniform;
 			AnchorPoint = Anchor::Center;
-			IsVideoCaptureEnabled = true;
+			IsVideoCaptureEnabled = false;
 		}
 		RecordingSourceBase(RecordingSourceBase^ base) :RecordingSourceBase() {
 			ID = base->ID;
@@ -146,8 +146,8 @@ namespace ScreenRecorderLib {
 			IsCursorCaptureEnabled = source->IsCursorCaptureEnabled;
 		}
 		property RecorderApi RecorderApi {
-			ScreenRecorderLib::RecorderApi get() {
-				return ScreenRecorderLib::RecorderApi::WindowsGraphicsCapture;
+			ScreenRecorderLibNew::RecorderApi get() {
+				return ScreenRecorderLibNew::RecorderApi::WindowsGraphicsCapture;
 			}
 		}
 		/// <summary>
@@ -166,7 +166,7 @@ namespace ScreenRecorderLib {
 
 	public ref class DisplayRecordingSource : public RecordingSourceBase {
 	private:
-		RecorderApi _recorderApi = ScreenRecorderLib::RecorderApi::DesktopDuplication;
+		RecorderApi _recorderApi = ScreenRecorderLibNew::RecorderApi::DesktopDuplication;
 		bool _isCursorCaptureEnabled = true;
 	public:
 		static property DisplayRecordingSource^ MainMonitor {
@@ -199,10 +199,10 @@ namespace ScreenRecorderLib {
 		}
 
 		property RecorderApi RecorderApi {
-			ScreenRecorderLib::RecorderApi get() {
+			ScreenRecorderLibNew::RecorderApi get() {
 				return _recorderApi;
 			}
-			void set(ScreenRecorderLib::RecorderApi api) {
+			void set(ScreenRecorderLibNew::RecorderApi api) {
 				_recorderApi = api;
 				OnPropertyChanged("RecorderApi");
 			}

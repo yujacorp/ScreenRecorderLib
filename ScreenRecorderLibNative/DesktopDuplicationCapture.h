@@ -18,7 +18,6 @@ public:
 	virtual HRESULT GetMouse(_Inout_ PTR_INFO *pPtrInfo, _In_ RECT frameCoordinates, _In_ int offsetX, _In_ int offsetY) override;
 	virtual inline std::wstring Name() override { return L"DesktopDuplicationCapture"; };
 private:
-	static const int NUMVERTICES = 6;
 	// methods
 	HRESULT InitializeDesktopDuplication(std::wstring deviceName);
 	HRESULT GetNextFrame(_In_ DWORD timeoutMillis, _Inout_ DUPL_FRAME_DATA *pData);

@@ -539,7 +539,7 @@ HRESULT ScreenCaptureManager::CreateSharedSurf(_In_ RECT desktopRect, _Outptr_ I
 	DeskTexD.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	DeskTexD.SampleDesc.Count = 1;
 	DeskTexD.Usage = D3D11_USAGE_DEFAULT;
-	DeskTexD.BindFlags = D3D11_BIND_RENDER_TARGET;
+	DeskTexD.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	DeskTexD.CPUAccessFlags = 0;
 	DeskTexD.MiscFlags = D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
 
@@ -662,6 +662,7 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 
 		TextureManager textureManager{};
 		hr = textureManager.Initialize(pSourceData->DxRes.Context, pSourceData->DxRes.Device);
+		
 		if (FAILED(hr))
 		{
 			LOG_ERROR(L"Failed to initialize TextureManager");
@@ -1008,4 +1009,12 @@ void ProcessCaptureHRESULT(_In_ HRESULT hr, _Inout_ CAPTURE_RESULT *pResult, _In
 			pResult->Error = L"Unexpected error, aborting capture";
 			break;
 	}
+}
+
+//
+// Returns shared handle
+//
+HANDLE ScreenCaptureManager::GetSharedSurfHandle()
+{
+	return GetSharedHandle(m_SharedSurf);
 }

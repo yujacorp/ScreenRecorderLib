@@ -29,6 +29,11 @@ public:
 	HRESULT CreateTexture(_In_ UINT width, _In_ UINT height, _Outptr_ ID3D11Texture2D **ppTexture, UINT miscFlag = 0, UINT bindFlag = 0);
 	HRESULT CreateTextureFromBuffer(_In_ BYTE *pFrameBuffer, _In_ LONG stride, _In_ UINT width, _In_ UINT height, _Outptr_ ID3D11Texture2D **ppTexture, UINT miscFlag = 0, UINT bindFlag = 0);
 	HRESULT BlankTexture(_Inout_ ID3D11Texture2D *pTexture, _In_ RECT rect, _In_ INT OffsetX, _In_  INT OffsetY);
+	ID3D11SamplerState* TextureManager::GetSamplerLinear();
+	ID3D11VertexShader *TextureManager::GetVertexShader();
+	ID3D11PixelShader *TextureManager::GetPixelShader();
+	ID3D11InputLayout *TextureManager::GetInputLayout();
+	ID3D11BlendState *TextureManager::GetBlendState();
 private:
 	HRESULT InitializeDesc(_In_ UINT width, _In_ UINT height, _Out_ D3D11_TEXTURE2D_DESC *pTargetDesc);
 	void ConfigureRotationVertices(_Inout_ VERTEX(&vertices)[6], _In_ RECT textureRect, _In_opt_ DXGI_MODE_ROTATION rotation = DXGI_MODE_ROTATION_UNSPECIFIED);

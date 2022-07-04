@@ -229,7 +229,8 @@ HRESULT DesktopDuplicationCapture::GetNativeSize(_In_ RECORDING_SOURCE_BASE &rec
 {
 	RtlZeroMemory(size, sizeof(size));
 	CComPtr<IDXGIOutput> output;
-	HRESULT hr = GetOutputForDeviceName(recordingSource.SourcePath, &output);
+	int index = 0;
+	HRESULT hr = GetOutputForDeviceName(recordingSource.SourcePath, &output, &index);
 	if (output) {
 		DXGI_OUTPUT_DESC desc;
 		output->GetDesc(&desc);
@@ -304,7 +305,8 @@ HRESULT DesktopDuplicationCapture::InitializeDesktopDuplication(std::wstring dev
 
 	// Get output
 	CComPtr<IDXGIOutput> DxgiOutput = nullptr;
-	hr = GetOutputForDeviceName(deviceName, &DxgiOutput);
+	int index = 0;
+	hr = GetOutputForDeviceName(deviceName, &DxgiOutput, &index);
 	if (FAILED(hr))
 	{
 		_com_error err(hr);

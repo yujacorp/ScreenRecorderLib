@@ -164,7 +164,8 @@ HRESULT GetOutputRectsForRecordingSources(_In_ const std::vector<RECORDING_SOURC
 		{
 			case RecordingSourceType::Display: {
 				CComPtr<IDXGIOutput> output;
-				HRESULT hr = GetOutputForDeviceName(source->SourcePath, &output);
+				int index = 0;
+				HRESULT hr = GetOutputForDeviceName(source->SourcePath, &output, &index);
 				if (FAILED(hr))
 				{
 					LOG_ERROR(L"Failed to get output descs for selected devices");
@@ -311,7 +312,8 @@ HRESULT GetMainOutput(_Outptr_result_maybenull_ IDXGIOutput **ppOutput) {
 HRESULT GetAdapterForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIAdapter **ppAdapter) {
 	CComPtr<IDXGIOutput> pSelectedOutput = nullptr;
 	CComPtr<IDXGIAdapter> pDxgiAdapter = nullptr;
-	HRESULT hr = GetOutputForDeviceName(deviceName, &pSelectedOutput);
+	int index = 0;
+	HRESULT hr = GetOutputForDeviceName(deviceName, &pSelectedOutput, &index);
 	if (SUCCEEDED(hr)) {
 		// Get DXGI adapter
 		hr = pSelectedOutput->GetParent(
@@ -325,7 +327,7 @@ HRESULT GetAdapterForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result
 	return hr;
 }
 
-HRESULT GetOutputForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIOutput **ppOutput) {
+HRESULT GetOutputForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIOutput **ppOutput, _Out_ int *index) {
 	HRESULT hr = DXGI_ERROR_NOT_FOUND;
 	if (ppOutput) {
 		*ppOutput = nullptr;
@@ -346,6 +348,7 @@ HRESULT GetOutputForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_
 					hr = S_OK;
 					if (ppOutput) {
 						*ppOutput = pOutput;
+						*index = i;
 						(*ppOutput)->AddRef();
 					}
 					break;

@@ -2,7 +2,7 @@
 using namespace System;
 using namespace System::Runtime::InteropServices;
 
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 	public enum class H264BitrateControlMode {
 		///<summary>Constant bitrate. Faster encoding than VBR, but produces larger files with consistent size. This setting might not work on software encoding. </summary>
 		CBR = 0,
@@ -52,7 +52,7 @@ namespace ScreenRecorderLib {
 		H264BitrateControlMode _bitrateMode;
 	public:
 		H264VideoEncoder() {
-			EncoderProfile = H264Profile::High;
+			EncoderProfile = H264Profile::Main;
 			BitrateMode = H264BitrateControlMode::Quality;
 		}
 		virtual event PropertyChangedEventHandler^ PropertyChanged;

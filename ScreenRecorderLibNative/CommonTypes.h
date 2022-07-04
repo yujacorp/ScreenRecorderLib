@@ -1,3 +1,6 @@
+#ifndef _COMMONTYPES_H_
+#define _COMMONTYPES_H_
+
 #pragma once
 #include <d3d11.h>
 #include <dxgi1_2.h>
@@ -12,6 +15,31 @@
 #include <wincodec.h>
 #include <chrono>
 #include "util.h"
+#include <windows.h>
+#include <new>
+
+#define NUMVERTICES 6
+#define BPP         4
+
+#define OCCLUSION_STATUS_MSG WM_USER
+
+extern HRESULT SystemTransitionsExpectedErrors[];
+extern HRESULT CreateDuplicationExpectedErrors[];
+extern HRESULT FrameInfoExpectedErrors[];
+extern HRESULT AcquireFrameExpectedError[];
+extern HRESULT EnumOutputsExpectedErrors[];
+
+typedef _Return_type_success_(return == DUPL_RETURN_SUCCESS) enum
+{
+	DUPL_RETURN_SUCCESS = 0,
+	DUPL_RETURN_ERROR_EXPECTED = 1,
+	DUPL_RETURN_ERROR_UNEXPECTED = 2
+}DUPL_RETURN;
+
+_Post_satisfies_(return != DUPL_RETURN_SUCCESS)
+DUPL_RETURN ProcessFailure(_In_opt_ ID3D11Device * Device, _In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr, _In_opt_z_ HRESULT * ExpectedErrors = nullptr);
+
+void DisplayMsg(_In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr);
 
 struct REC_RESULT {
 	HRESULT RecordingResult;
@@ -121,6 +149,10 @@ struct DX_RESOURCES
 	ID3D11Device *Device;
 	ID3D11DeviceContext *Context;
 	ID3D11Debug *Debug;
+	ID3D11VertexShader *VertexShader;
+	ID3D11PixelShader *PixelShader;
+	ID3D11InputLayout *InputLayout;
+	ID3D11SamplerState *SamplerLinear;
 };
 
 
@@ -144,7 +176,8 @@ enum class RecorderModeInternal {
 	///<summary>Record a slideshow of pictures. </summary>
 	Slideshow = 1,
 	///<summary>Create a single screenshot.</summary>
-	Screenshot = 2
+	Screenshot = 2, 
+	Preview = 3
 };
 
 enum class TextureStretchMode {
@@ -416,19 +449,28 @@ public:
 struct OUTPUT_OPTIONS {
 protected:
 	SIZE m_FrameSize{};
+	SIZE m_ScaledSreenSize{};
 	RECT m_SourceRect{};
 	TextureStretchMode m_Stretch = TextureStretchMode::Uniform;
 	RecorderModeInternal m_RecorderMode = RecorderModeInternal::Video;
+	bool m_IsPreviewOnly = true;
+	bool m_IsCustomSelectedArea = false;
 	bool m_IsVideoCaptureEnabled = true;
 public:
 	SIZE GetFrameSize() { return m_FrameSize; }
 	void SetFrameSize(SIZE size) { m_FrameSize = size; }
+	SIZE GetScaledScreenSize() { return m_ScaledSreenSize; }
+	void SetScaledScreenSize(SIZE size) { m_ScaledSreenSize = size; }
 	void SetSourceRectangle(RECT rect) { m_SourceRect = MakeRectEven(rect); }
 	RECT GetSourceRectangle() { return m_SourceRect; }
 	void SetStretch(TextureStretchMode stretch) { m_Stretch = stretch; }
 	TextureStretchMode GetStretch() { return m_Stretch; }
 	RecorderModeInternal GetRecorderMode() { return m_RecorderMode; }
+	bool GetIsPreviewOnly() { return m_IsPreviewOnly; }
+	bool GetIsCustomSelectedArea() { return m_IsCustomSelectedArea; }
 	void SetRecorderMode(RecorderModeInternal recorderMode) { m_RecorderMode = recorderMode; }
+	void SetIsPreviewOnly(bool isPreviewOnly) { m_IsPreviewOnly = isPreviewOnly; }
+	void SetIsCustomSelectedArea(bool isCusSelArea) { m_IsCustomSelectedArea = isCusSelArea; }
 	bool IsVideoCaptureEnabled() { return m_IsVideoCaptureEnabled; }
 	void SetVideoCaptureEnabled(bool value) { m_IsVideoCaptureEnabled = value; }
 
@@ -540,3 +582,5 @@ public:
 		}
 	}
 };
+
+#endif

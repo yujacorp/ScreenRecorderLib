@@ -4,7 +4,7 @@
 HRESULT InitializeDx(_In_opt_ IDXGIAdapter *adapter, _Out_ DX_RESOURCES *Data);
 HRESULT GetAdapterForDevice(_In_ ID3D11Device *pDevice, _Outptr_ IDXGIAdapter **ppAdapter);
 HRESULT GetAdapterForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIAdapter **ppAdapter);
-HRESULT GetOutputForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIOutput **ppOutput);
+HRESULT GetOutputForDeviceName(_In_ std::wstring deviceName, _Outptr_opt_result_maybenull_ IDXGIOutput **ppOutput, _Out_ int *index);
 
 /// <summary>
 /// Returns the main display output of the system.

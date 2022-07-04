@@ -361,7 +361,8 @@ HRESULT WindowsGraphicsCapture::GetCaptureItem(_In_ RECORDING_SOURCE_BASE &recor
 	}
 	else {
 		CComPtr<IDXGIOutput> output = nullptr;
-		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output);
+		int index = 0;
+		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output, &index);
 		if (FAILED(hr)) {
 			hr = GetMainOutput(&output);
 			if (FAILED(hr)) {

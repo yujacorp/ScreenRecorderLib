@@ -7,7 +7,7 @@
 using namespace System;
 using namespace System::Collections::Generic;
 
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 	public enum class LogLevel
 	{
 		Trace = 0,
@@ -132,12 +132,17 @@ namespace ScreenRecorderLib {
 	private:
 		StretchMode _stretch;
 		ScreenSize^ _outputFrameSize;
+		ScreenSize^ _outputScaledScreenSize;
 		RecorderMode _recorderMode;
+		bool _isPreviewOnly;
+		bool _isCustomSeletedArea;
 	public:
 		OutputOptions():DynamicOutputOptions(){
 			Stretch = StretchMode::Uniform;
-			OutputFrameSize = ScreenSize::Empty;
-			RecorderMode = ScreenRecorderLib::RecorderMode::Video;
+			OutputScaledScreenSize = ScreenSize::Empty;
+			RecorderMode = ScreenRecorderLibNew::RecorderMode::Video;
+			IsPreviewOnly = true;
+			IsCustomSelectedArea = false;
 		}
 
 		/// <summary>
@@ -165,13 +170,46 @@ namespace ScreenRecorderLib {
 			}
 		}
 
-		property ScreenRecorderLib::RecorderMode RecorderMode {
-			ScreenRecorderLib::RecorderMode get() {
+		/// <summary>
+		/// The screen size of the scaled screen.
+		/// </summary>
+		property ScreenSize^ OutputScaledScreenSize {
+			ScreenSize^ get() {
+				return _outputScaledScreenSize;
+			}
+			void set(ScreenSize^ value) {
+				_outputScaledScreenSize = value;
+				OnPropertyChanged("OutputScaledScreenSize");
+			}
+		}
+
+		property ScreenRecorderLibNew::RecorderMode RecorderMode {
+			ScreenRecorderLibNew::RecorderMode get() {
 				return _recorderMode;
 			}
-			void set(ScreenRecorderLib::RecorderMode value) {
+			void set(ScreenRecorderLibNew::RecorderMode value) {
 				_recorderMode = value;
 				OnPropertyChanged("RecorderMode");
+			}
+		}
+
+		property bool IsPreviewOnly {
+			bool get() {
+				return _isPreviewOnly;
+			}
+			void set(bool value) {
+				_isPreviewOnly = value;
+				OnPropertyChanged("IsPreviewOnly");
+			}
+		}
+
+		property bool IsCustomSelectedArea {
+			bool get() {
+				return _isCustomSeletedArea;
+			}
+			void set(bool value) {
+				_isCustomSeletedArea = value;
+				OnPropertyChanged("IsCustomSelectedArea");
 			}
 		}
 	};
@@ -336,8 +374,8 @@ namespace ScreenRecorderLib {
 		String^ _snapshotsDirectory;
 	public:
 		SnapshotOptions() {
-			SnapshotFormat = ImageFormat::PNG;
-			SnapshotsWithVideo = false;
+			SnapshotFormat = ImageFormat::BMP;
+			SnapshotsWithVideo = true;
 			SnapshotsIntervalMillis = 10000;
 		}
 		virtual event PropertyChangedEventHandler^ PropertyChanged;
@@ -478,7 +516,7 @@ namespace ScreenRecorderLib {
 			Bitrate = AudioBitrate::bitrate_96kbps;
 			Channels = AudioChannels::Stereo;
 			IsAudioEnabled = false;
-			IsOutputDeviceEnabled = true;
+			IsOutputDeviceEnabled = false;
 			IsInputDeviceEnabled = false;
 			InputVolume = 1.0f;
 			OutputVolume = 1.0f;
@@ -620,7 +658,7 @@ namespace ScreenRecorderLib {
 			}
 		}
 		/// <summary>
-		/// The duration of the dot shown where the mouse button is pressed, in milliseconds. Default is 150.
+		/// The duration of the dot shown where the mouse button is pressed, in milliseconds. Default is 50.
 		/// </summary>
 		property Nullable<int> MouseClickDetectionDuration {
 			Nullable<int> get() {
@@ -642,9 +680,9 @@ namespace ScreenRecorderLib {
 			IsMousePointerEnabled = true;
 			IsMouseClicksDetected = false;
 			MouseLeftClickDetectionColor = "#FFFF00";
-			MouseRightClickDetectionColor = "#FFFF00";
+			MouseRightClickDetectionColor = "#006aff";
 			MouseClickDetectionRadius = 20;
-			MouseClickDetectionDuration = 150;
+			MouseClickDetectionDuration = 50;
 		}
 		/// <summary>
 		/// The mode for detecting mouse clicks. Default is Polling.
@@ -747,21 +785,21 @@ namespace ScreenRecorderLib {
 		static property RecorderOptions^ Default {
 			RecorderOptions^ get() {
 				RecorderOptions^ rec = gcnew RecorderOptions();
-				rec->SourceOptions = gcnew ScreenRecorderLib::SourceOptions();
-				rec->AudioOptions = gcnew ScreenRecorderLib::AudioOptions();
-				rec->LogOptions = gcnew ScreenRecorderLib::LogOptions();
-				rec->MouseOptions = gcnew ScreenRecorderLib::MouseOptions();
-				rec->OutputOptions = gcnew ScreenRecorderLib::OutputOptions();
-				rec->OverlayOptions = gcnew ScreenRecorderLib::OverLayOptions();
-				rec->SnapshotOptions = gcnew ScreenRecorderLib::SnapshotOptions();
-				rec->VideoEncoderOptions = gcnew ScreenRecorderLib::VideoEncoderOptions();
+				rec->SourceOptions = gcnew ScreenRecorderLibNew::SourceOptions();
+				rec->AudioOptions = gcnew ScreenRecorderLibNew::AudioOptions();
+				rec->LogOptions = gcnew ScreenRecorderLibNew::LogOptions();
+				rec->MouseOptions = gcnew ScreenRecorderLibNew::MouseOptions();
+				rec->OutputOptions = gcnew ScreenRecorderLibNew::OutputOptions();
+				rec->OverlayOptions = gcnew ScreenRecorderLibNew::OverLayOptions();
+				rec->SnapshotOptions = gcnew ScreenRecorderLibNew::SnapshotOptions();
+				rec->VideoEncoderOptions = gcnew ScreenRecorderLibNew::VideoEncoderOptions();
 				return rec;
 			}
 		}
 		static property RecorderOptions^ DefaultMainMonitor {
 			RecorderOptions^ get() {
 				RecorderOptions^ rec = Default;
-				rec->SourceOptions = ScreenRecorderLib::SourceOptions::MainMonitor;
+				rec->SourceOptions = ScreenRecorderLibNew::SourceOptions::MainMonitor;
 				return rec;
 			}
 		}

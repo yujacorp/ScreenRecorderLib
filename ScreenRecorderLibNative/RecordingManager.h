@@ -10,6 +10,7 @@ typedef void(__stdcall *CallbackStatusChangedFunction)(int);
 typedef void(__stdcall *CallbackErrorFunction)(std::wstring, std::wstring);
 typedef void(__stdcall *CallbackSnapshotFunction)(std::wstring);
 typedef void(__stdcall *CallbackFrameNumberChangedFunction)(int);
+typedef void(__stdcall *CallbackAudioVolumeChangedFunction)(int);
 
 #define STATUS_IDLE 0
 #define STATUS_RECORDING 1
@@ -29,6 +30,7 @@ public:
 	CallbackStatusChangedFunction RecordingStatusChangedCallback;
 	CallbackSnapshotFunction RecordingSnapshotCreatedCallback;
 	CallbackFrameNumberChangedFunction RecordingFrameNumberChangedCallback;
+	CallbackAudioVolumeChangedFunction AudioRecordingVolumeChangedCallback;
 	HRESULT BeginRecording(_In_opt_ std::wstring path);
 	HRESULT BeginRecording(_In_opt_ std::wstring path, _In_opt_ IStream *stream);
 	HRESULT BeginRecording(_In_opt_ IStream *stream);
@@ -78,6 +80,9 @@ public:
 	std::shared_ptr<SNAPSHOT_OPTIONS> GetSnapshotOptions() { return m_SnapshotOptions; }
 	void SetOutputOptions(OUTPUT_OPTIONS *options) { m_OutputOptions.reset(options); }
 	std::shared_ptr<OUTPUT_OPTIONS> GetOutputOptions() { return m_OutputOptions; }
+
+	void SetHwnd(HWND handle) { m_previewWindowHandle = handle; }
+	void RecordingManager::DetermineScalingParameters(int originalWidth, int originalHeight);
 private:
 	bool m_IsDestructing;
 	struct TaskWrapper;
@@ -146,4 +151,11 @@ private:
 	/// <param name="result">The recording result.</param>
 	/// <param name="frameDelays">A map of paths to saved frames with corresponding delay between them. Only used for Slideshow mode.</param>
 	void SetRecordingCompleteStatus(_In_ REC_RESULT result, nlohmann::fifo_map<std::wstring, int> frameDelays);
+
+	HWND m_previewWindowHandle = nullptr;
+	UINT32 m_ScaledFrameWidth = 0;
+	UINT32 m_ScaledFrameHeight = 0;
+	double m_ScaledFrameRatio = 1.0;
+	bool m_IsScalingEnabled = false;
+	RECT m_DestRect = { 0,0,0,0 };
 };

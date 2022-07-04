@@ -29,6 +29,12 @@ public:
 	virtual UINT GetUpdatedFrameCount(_In_ bool resetUpdatedFrameCounts);
 	std::vector<CAPTURE_THREAD_DATA> GetCaptureThreadData();
 	std::vector<OVERLAY_THREAD_DATA> GetOverlayThreadData();
+	HANDLE ScreenCaptureManager::GetSharedSurfHandle();
+	ID3D11SamplerState *ScreenCaptureManager::GetSamplerLinear();
+	ID3D11VertexShader *ScreenCaptureManager::GetVertexShader();
+	ID3D11PixelShader *ScreenCaptureManager::GetPixelShader();
+	ID3D11InputLayout *ScreenCaptureManager::GetInputLayout();
+	ID3D11BlendState *ScreenCaptureManager::GetBlendState();
 protected:
 	LARGE_INTEGER m_LastAcquiredFrameTimeStamp;
 	ID3D11Texture2D *m_SharedSurf;

@@ -4,7 +4,7 @@
 #include <msclr/marshal_cppstd.h>
 #include "ManagedStreamWrapper.h"
 
-namespace ScreenRecorderLib {
+namespace ScreenRecorderLibNew {
 	private class ManagedIStream : public IStream
 	{
 	public:
