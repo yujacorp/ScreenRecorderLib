@@ -65,8 +65,10 @@ namespace ScreenRecorderLibNew {
 	public ref class FrameRecordedEventArgs :System::EventArgs {
 	public:
 		property int FrameNumber;
-		FrameRecordedEventArgs(int frameNumber) {
+		property INT64 Timestamp;
+		FrameRecordedEventArgs(int frameNumber, INT64 timestamp) {
 			FrameNumber = frameNumber;
+			Timestamp = timestamp;
 		}
 	};
 }

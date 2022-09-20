@@ -109,14 +109,8 @@ RecordingManager::~RecordingManager()
 		m_TaskWrapperImpl->m_RecordTask.wait();
 		LOG_DEBUG("Wait for recording task completed.");
 	}
-	for each (RECORDING_SOURCE * source in m_RecordingSources)
-	{
-		delete source;
-	}
-	for each (RECORDING_OVERLAY * overlay in m_Overlays)
-	{
-		delete overlay;
-	}
+	ClearRecordingSources();
+	ClearOverlays();
 	CleanDx(&m_DxResources);
 	MFShutdown();
 	LOG_INFO(L"Media Foundation shut down");
@@ -326,7 +320,7 @@ void RecordingManager::CleanupDxResources()
 #if _DEBUG
 	if (m_DxResources.Debug) {
 		m_DxDebugMutex.lock();
-		m_DxResources.Debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL| D3D11_RLDO_IGNORE_INTERNAL);
+		m_DxResources.Debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL | D3D11_RLDO_IGNORE_INTERNAL);
 		m_DxDebugMutex.unlock();
 		SafeRelease(&m_DxResources.Debug);
 	}
@@ -554,7 +548,8 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 		RETURN_ON_BAD_HR(renderHr = m_EncoderResult = m_OutputManager->RenderFrame(model));
 		frameNr++;
 		if (RecordingFrameNumberChangedCallback != nullptr && !m_IsDestructing) {
-			RecordingFrameNumberChangedCallback(frameNr);
+			INT64 timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+			RecordingFrameNumberChangedCallback(frameNr, timestamp);
 		}
 		if (AudioRecordingVolumeChangedCallback != nullptr)
 		{
@@ -738,7 +733,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 		}
 
 		if (!pCurrentFrameCopy && !pPreviousFrameCopy) {
-			m_TextureManager->CreateTexture(videoOutputFrameSize.cx, videoOutputFrameSize.cy, &pCurrentFrameCopy, 0, D3D11_BIND_RENDER_TARGET);
+			m_TextureManager->CreateTexture(videoOutputFrameSize.cx, videoOutputFrameSize.cy, &pCurrentFrameCopy, 0, D3D11_BIND_RENDER_TARGET| D3D11_BIND_SHADER_RESOURCE);
 		}
 
 		lastFrame = steady_clock::now();
