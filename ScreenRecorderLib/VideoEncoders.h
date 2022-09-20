@@ -52,7 +52,7 @@ namespace ScreenRecorderLibNew {
 		H264BitrateControlMode _bitrateMode;
 	public:
 		H264VideoEncoder() {
-			EncoderProfile = H264Profile::Main;
+			EncoderProfile = H264Profile::High;
 			BitrateMode = H264BitrateControlMode::Quality;
 		}
 		virtual event PropertyChangedEventHandler^ PropertyChanged;

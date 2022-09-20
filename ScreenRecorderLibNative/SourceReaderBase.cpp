@@ -55,7 +55,7 @@ HRESULT SourceReaderBase::StartCapture(_In_ RECORDING_SOURCE_BASE &recordingSour
 	HRESULT hr;
 	m_RecordingSource = &recordingSource;
 	long streamIndex;
-	RETURN_ON_BAD_HR(hr = InitializeSourceReader(recordingSource.SourcePath, &streamIndex, &m_SourceReader, &m_InputMediaType, &m_OutputMediaType, &m_MediaTransform));
+	RETURN_ON_BAD_HR(hr = InitializeSourceReader(recordingSource.SourcePath, recordingSource.OutputSize, &streamIndex, &m_SourceReader, &m_InputMediaType, &m_OutputMediaType, &m_MediaTransform));
 	RETURN_ON_BAD_HR(GetDefaultStride(m_OutputMediaType, &m_Stride));
 	RETURN_ON_BAD_HR(GetFrameRate(m_InputMediaType, &m_FrameRate));
 	RETURN_ON_BAD_HR(GetFrameSize(m_InputMediaType, &m_FrameSize));
@@ -75,7 +75,7 @@ HRESULT SourceReaderBase::GetNativeSize(_In_ RECORDING_SOURCE_BASE &recordingSou
 		long streamIndex;
 		RETURN_ON_BAD_HR(MFStartup(MF_VERSION, MFSTARTUP_LITE));
 		CComPtr<IMFMediaType> pInputMediaType;
-		RETURN_ON_BAD_HR(InitializeSourceReader(recordingSource.SourcePath, &streamIndex, &m_SourceReader, &pInputMediaType, nullptr, nullptr));
+		RETURN_ON_BAD_HR(InitializeSourceReader(recordingSource.SourcePath, recordingSource.OutputSize, &streamIndex, &m_SourceReader, &pInputMediaType, nullptr, nullptr));
 		RETURN_ON_BAD_HR(MFShutdown());
 		return GetFrameSize(pInputMediaType, nativeMediaSize);
 	}
@@ -119,7 +119,13 @@ HRESULT SourceReaderBase::AcquireNextFrame(_In_ DWORD timeoutMillis, _Outptr_opt
 
 			DWORD len;
 			BYTE *data;
-			hr = m_Sample->Lock(&data, NULL, &len);
+			if (m_Sample == nullptr) {
+				hr = E_FAIL;
+			}
+			else 
+			{
+				hr = m_Sample->Lock(&data, NULL, &len);
+			}
 			if (FAILED(hr))
 			{
 				delete[] m_PtrFrameBuffer;
@@ -360,24 +366,24 @@ HRESULT SourceReaderBase::CreateIMFTransform(_In_ DWORD streamIndex, _In_ IMFMed
 	GUID outputVideoFormat;
 	pOutputMediaType->GetGUID(MF_MT_SUBTYPE, &outputVideoFormat);
 
-	GUID guidMinor;
-	GUID guidMajor;
-	for (int i = 0;; i++)
-	{
-		IMFMediaType *mediaType;
-		hr = pConverter->GetOutputAvailableType(streamIndex, i, &mediaType);
-		if (FAILED(hr))
-		{
-			break;
-		}
-		hr = mediaType->GetGUID(MF_MT_MAJOR_TYPE, &guidMajor);
-		hr = mediaType->GetGUID(MF_MT_SUBTYPE, &guidMinor);
-		if (guidMinor == outputVideoFormat) {
-			break;
-		}
+	//GUID guidMinor;
+	//GUID guidMajor;
+	//for (int i = 0;; i++)
+	//{
+	//	IMFMediaType *mediaType;
+	//	hr = pConverter->GetOutputAvailableType(streamIndex, i, &mediaType);
+	//	if (FAILED(hr))
+	//	{
+	//		break;
+	//	}
+	//	hr = mediaType->GetGUID(MF_MT_MAJOR_TYPE, &guidMajor);
+	//	hr = mediaType->GetGUID(MF_MT_SUBTYPE, &guidMinor);
+	//	if (guidMinor == outputVideoFormat) {
+	//		break;
+	//	}
 
-		mediaType->Release();
-	}
+	//	mediaType->Release();
+	//}
 
 	RETURN_ON_BAD_HR(hr = pConverter->SetOutputType(streamIndex, pOutputMediaType, 0));
 	if (ppTransform) {

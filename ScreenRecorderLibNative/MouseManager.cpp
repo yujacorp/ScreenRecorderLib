@@ -249,9 +249,9 @@ HRESULT MouseManager::ProcessMousePointer(_In_ ID3D11Texture2D *pFrame, _In_ PTR
 		LOG_TRACE("Drawing mouse click, duration remaining on click is %u ms", g_LastMouseClickDurationRemaining);
 	}
 
-	if (m_MouseOptions->IsMousePointerEnabled()) {
+	/*if (m_MouseOptions->IsMousePointerEnabled()) {
 		hr = DrawMousePointer(pPtrInfo, pFrame, DXGI_MODE_ROTATION_UNSPECIFIED);
-	}
+	}*/
 	m_LastMouseDrawTimeStamp = std::chrono::steady_clock::now();
 	return hr;
 }
@@ -852,8 +852,6 @@ HRESULT MouseManager::ResizeShapeBuffer(_Inout_ PTR_INFO *pPtrInfo, _In_ int buf
 //
 HRESULT MouseManager::GetMouse(_Inout_ PTR_INFO *pPtrInfo, _In_ bool getShapeBuffer, _In_ DXGI_OUTDUPL_FRAME_INFO *pFrameInfo, _In_ RECT screenRect, _In_ IDXGIOutputDuplication *pDeskDupl, _In_ int offsetX, _In_ int offsetY)
 {
-	EnterCriticalSection(&m_CriticalSection);
-	LeaveCriticalSectionOnExit leaveOnExit(&m_CriticalSection);
 	pPtrInfo->IsPointerShapeUpdated = false;
 	// A non-zero mouse update timestamp indicates that there is a mouse position update and optionally a shape change
 	if (pFrameInfo->LastMouseUpdateTime.QuadPart == 0)
@@ -903,7 +901,6 @@ HRESULT MouseManager::GetMouse(_Inout_ PTR_INFO *pPtrInfo, _In_ bool getShapeBuf
 		delete[] pPtrInfo->PtrShapeBuffer;
 		pPtrInfo->PtrShapeBuffer = nullptr;
 		pPtrInfo->BufferSize = 0;
-		RtlZeroMemory(&pPtrInfo->ShapeInfo, sizeof(pPtrInfo->ShapeInfo));
 		_com_error err(hr);
 		LOG_ERROR(L"Failed to get pFrame pointer shape in DUPLICATIONMANAGER: %lls", err.ErrorMessage());
 		return hr;
@@ -914,8 +911,6 @@ HRESULT MouseManager::GetMouse(_Inout_ PTR_INFO *pPtrInfo, _In_ bool getShapeBuf
 
 HRESULT MouseManager::GetMouse(_Inout_ PTR_INFO *pPtrInfo, _In_ bool getShapeBuffer, _In_ int offsetX, _In_ int offsetY)
 {
-	EnterCriticalSection(&m_CriticalSection);
-	LeaveCriticalSectionOnExit leaveOnExit(&m_CriticalSection);
 	pPtrInfo->IsPointerShapeUpdated = false;
 	CURSORINFO cursorInfo = { 0 };
 	cursorInfo.cbSize = sizeof(CURSORINFO);

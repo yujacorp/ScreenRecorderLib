@@ -390,7 +390,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 {
 	CComPtr<ID3D11Texture2D> pPreviousFrameCopy = nullptr;
 	CComPtr<ID3D11Texture2D> pCurrentFrameCopy = nullptr;
-	std::optional<PTR_INFO> pPtrInfo = std::nullopt;
+	PTR_INFO *pPtrInfo{};
 	unique_ptr<ScreenCaptureManager> pCapture = make_unique<ScreenCaptureManager>();
 	HRESULT hr = pCapture->Initialize(m_DxResources.Context, m_DxResources.Device, GetOutputOptions());
 	RETURN_RESULT_ON_BAD_HR(hr, L"Failed to initialize ScreenCaptureManager");
@@ -511,16 +511,16 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 	});
 	auto PrepareAndRenderFrame([&](CComPtr<ID3D11Texture2D> pTextureToRender, INT64 duration100Nanos)->HRESULT {
 		HRESULT renderHr = E_FAIL;
-		//if (pPtrInfo) {
-		//	m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\before.png");
-		//	renderHr = pMouseManager->ProcessMousePointer(pTextureToRender, pPtrInfo);
-		//	m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\after.png");
-		//	if (FAILED(renderHr)) {
-		//		_com_error err(renderHr);
-		//		LOG_ERROR(L"Error drawing mouse pointer: %s", err.ErrorMessage());
-		//		//We just log the error and continue if the mouse pointer failed to draw. If there is an error with DXGI, it will be handled on the next call to AcquireNextFrame.
-		//	}
-		//}
+		if (pPtrInfo) {
+			//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\before.png");
+			renderHr = pMouseManager->ProcessMousePointer(pTextureToRender, pPtrInfo);
+			//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\after.png");
+			if (FAILED(renderHr)) {
+				_com_error err(renderHr);
+				LOG_ERROR(L"Error drawing mouse pointer: %s", err.ErrorMessage());
+				//We just log the error and continue if the mouse pointer failed to draw. If there is an error with DXGI, it will be handled on the next call to AcquireNextFrame.
+			}
+		}
 		if (IsValidRect(GetOutputOptions()->GetSourceRectangle())) {
 			RETURN_ON_BAD_HR(hr = InitializeRects(pCapture->GetOutputSize(), &videoInputFrameRect, nullptr));
 		}
@@ -543,7 +543,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 			}
 		}
 		//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\beforemodel.png");
-		m_OutputManager->SetMousePtrInfo(&pPtrInfo.value();
+		m_OutputManager->SetMousePtrInfo(pPtrInfo);
 		//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\aftermodel.png");
 		FrameWriteModel model{};
 		model.Frame = pTextureToRender;
@@ -624,7 +624,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 							ResetEvent(ErrorEvent);
 							hr = pCapture->StartCapture(sources, overlays, ErrorEvent);
 						}
-						pPtrInfo.reset();
+
 						if (FAILED(hr)) {
 							CAPTURE_RESULT captureResult{};
 							ProcessCaptureHRESULT(hr, &captureResult, m_DxResources.Device);
@@ -663,7 +663,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 		if (SUCCEEDED(hr)) {
 			pCurrentFrameCopy.Attach(capturedFrame.Frame);
 			if (capturedFrame.PtrInfo) {
-				pPtrInfo = capturedFrame.PtrInfo.value();
+				pPtrInfo = capturedFrame.PtrInfo;
 			}
 		}
 

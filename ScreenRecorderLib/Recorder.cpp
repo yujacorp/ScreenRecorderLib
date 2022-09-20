@@ -238,6 +238,7 @@ void Recorder::SetDynamicOptions(DynamicOptions^ options)
 			}
 		}
 	}
+
 	if (options->SourceCursorCaptures) {
 		for each (KeyValuePair<String^, bool> ^ kvp in options->SourceCursorCaptures)
 		{
@@ -246,19 +247,6 @@ void Recorder::SetDynamicOptions(DynamicOptions^ options)
 			{
 				if (nativeSource->ID == id) {
 					nativeSource->IsCursorCaptureEnabled = kvp->Value;
-					break;
-				}
-			}
-		}
-	}
-	if (options->OverlayCursorCaptures) {
-		for each (KeyValuePair<String^, bool> ^ kvp in options->OverlayCursorCaptures)
-		{
-			std::wstring id = msclr::interop::marshal_as<std::wstring>(kvp->Key);
-			for each (RECORDING_OVERLAY * nativeOverlay in m_Rec->GetRecordingOverlays())
-			{
-				if (nativeOverlay->ID == id) {
-					nativeOverlay->IsCursorCaptureEnabled = kvp->Value;
 					break;
 				}
 			}
@@ -740,7 +728,6 @@ HRESULT Recorder::CreateNativeRecordingOverlay(_In_ RecordingOverlayBase^ manage
 		nativeOverlay.Type = RecordingSourceType::Display;
 		if (!String::IsNullOrEmpty(displayOverlay->DeviceName)) {
 			nativeOverlay.SourcePath = msclr::interop::marshal_as<std::wstring>(displayOverlay->DeviceName);
-			nativeOverlay.IsCursorCaptureEnabled = displayOverlay->IsCursorCaptureEnabled;
 			hr = S_OK;
 		}
 	}
@@ -751,7 +738,6 @@ HRESULT Recorder::CreateNativeRecordingOverlay(_In_ RecordingOverlayBase^ manage
 			HWND windowHandle = (HWND)(windowOverlay->Handle.ToPointer());
 			if (!IsIconic(windowHandle) && IsWindow(windowHandle)) {
 				nativeOverlay.SourceWindow = windowHandle;
-				nativeOverlay.IsCursorCaptureEnabled = windowOverlay->IsCursorCaptureEnabled;
 				hr = S_OK;
 			}
 		}
@@ -889,4 +875,76 @@ void Recorder::FrameNumberChanged(int newFrameNumber)
 void Recorder::AudioVolumeChanged(int volume)
 {
 	OnAudioVolumeChanged(this, gcnew AudioRecordingVolumeEventArgs(volume));
+}
+
+bool Recorder::CheckMultiMonitorMultiGraphicsCompatability()
+{
+	IDXGIFactory* pdxFactory;
+	HRESULT hr = CreateDXGIFactory(IID_PPV_ARGS(&pdxFactory));
+	if (SUCCEEDED(hr))
+	{
+		int nAdapter = 0;
+		bool monitorFlag = false;
+		int adapterNo = 0;
+
+		while (true)
+		{
+			IDXGIAdapter* pdxAdapter;
+			hr = pdxFactory->EnumAdapters(nAdapter, &pdxAdapter);
+			if (FAILED(hr))
+				break;
+			else
+			{
+				WCHAR wsText[255] = L"";
+				swprintf(wsText, L"Adapter n%d\n", nAdapter);
+				OutputDebugString(wsText);
+			}
+			DXGI_ADAPTER_DESC dxAdapterDesc;
+			hr = pdxAdapter->GetDesc(&dxAdapterDesc);
+
+			if (SUCCEEDED(hr))
+			{
+				WCHAR wsText[255] = L"";
+				swprintf(wsText, L"ID : %d - Description : %s\n", dxAdapterDesc.DeviceId, dxAdapterDesc.Description);
+				OutputDebugString(wsText);
+			}
+
+			int nOutput = 0;
+			while (true)
+			{
+				IDXGIOutput* pdxOutput;
+				if (FAILED(pdxAdapter->EnumOutputs(nOutput, &pdxOutput)))
+				{
+					break;
+				}
+				else if (monitorFlag && adapterNo != nAdapter)
+				{
+					return false;
+				}
+				else
+				{
+					monitorFlag = true;
+					adapterNo = nAdapter;
+					WCHAR wsText[255] = L"";
+					swprintf(wsText, L"\tOutput n%d\n", nOutput);
+					OutputDebugString(wsText);
+				}
+
+				DXGI_OUTPUT_DESC dxOutputDesc;
+				hr = pdxOutput->GetDesc(&dxOutputDesc);
+				MONITORINFO mi = { sizeof(mi) };
+				GetMonitorInfo(dxOutputDesc.Monitor, &mi);
+				WCHAR wsText[255] = L"";
+				swprintf(wsText, L"\tDeviceName : %s - rc = {%d, %d, %d, %d}\n", dxOutputDesc.DeviceName, mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom);
+				OutputDebugString(wsText);
+
+				pdxOutput->Release();
+				nOutput++;
+			}
+			pdxAdapter->Release();
+			nAdapter++;
+		}
+		pdxFactory->Release();
+	}
+	return true;
 }

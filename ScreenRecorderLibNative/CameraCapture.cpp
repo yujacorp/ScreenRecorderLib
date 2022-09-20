@@ -11,6 +11,7 @@ CameraCapture::~CameraCapture()
 
 HRESULT CameraCapture::InitializeSourceReader(
 	_In_ std::wstring source,
+	_In_ std::optional<SIZE> outputSize,
 	_Out_ long *pStreamIndex,
 	_Outptr_ IMFSourceReader **ppSourceReader,
 	_Outptr_ IMFMediaType **ppInputMediaType,
@@ -64,7 +65,7 @@ HRESULT CameraCapture::InitializeSourceReader(
 			continue;
 		}
 		m_DeviceSymbolicLink = std::wstring(symbolicLink);
-		CONTINUE_ON_BAD_HR(hr = InitializeMediaSource(pDevice, pStreamIndex, ppSourceReader, ppInputMediaType, ppOutputMediaType, ppMediaTransform));
+		CONTINUE_ON_BAD_HR(hr = InitializeMediaSource(pDevice, outputSize, pStreamIndex, ppSourceReader, ppInputMediaType, ppOutputMediaType, ppMediaTransform));
 
 		WCHAR *nameString = NULL;
 		// Get the human-friendly name of the device
@@ -89,6 +90,7 @@ HRESULT CameraCapture::InitializeSourceReader(
 
 HRESULT CameraCapture::InitializeMediaSource(
 	_In_ IMFActivate *pDevice,
+	_In_ std::optional<SIZE> outputSize,
 	_Out_ long *pStreamIndex,
 	_Outptr_ IMFSourceReader **ppSourceReader,
 	_Outptr_ IMFMediaType **ppInputMediaType,
@@ -121,19 +123,31 @@ HRESULT CameraCapture::InitializeMediaSource(
 	// Try to find a suitable output type.
 	if (SUCCEEDED(hr))
 	{
-		for (DWORD mediaTypeIndex = 0; ; mediaTypeIndex++)
+		GUID subTypeList[] = { MFVideoFormat_NV12, MFVideoFormat_MJPG, MFVideoFormat_YUY2 };
+		int subTypeIndex = 0;
+
+		for (DWORD streamIndex = 0; ; streamIndex++)
 		{
-			for (DWORD streamIndex = 0; ; streamIndex++)
+			for (DWORD mediaTypeIndex = 0; ; mediaTypeIndex++)
 			{
 				CComPtr<IMFMediaType> pInputMediaType = nullptr;
 				CComPtr<IMFMediaType> pOutputMediaType = nullptr;
 				CComPtr<IMFTransform> pMediaTransform = nullptr;
+				int x = mediaTypeIndex;
 				hr = pSourceReader->GetNativeMediaType(streamIndex, mediaTypeIndex, &pInputMediaType);
 				if (FAILED(hr))
 				{
+					if (subTypeIndex < 2)
+					{
+						subTypeIndex++;
+						mediaTypeIndex = -1;
+						continue;
+					}
+
 					noMoreMedia = true;
 					break;
 				}
+
 				GUID inputMajorType;
 				pInputMediaType->GetGUID(MF_MT_MAJOR_TYPE, &inputMajorType);
 				if (inputMajorType != MFMediaType_Video) {
@@ -141,9 +155,29 @@ HRESULT CameraCapture::InitializeMediaSource(
 				}
 				GUID inputSubType;
 				pInputMediaType->GetGUID(MF_MT_SUBTYPE, &inputSubType);
+
+				if (subTypeList[subTypeIndex] != inputSubType)
+				{
+					continue;
+				}
+
+				UINT32 inputWidth;
+				UINT32 inputHeight;
+				CONTINUE_ON_BAD_HR(MFGetAttributeSize(pInputMediaType, MF_MT_FRAME_SIZE, &inputWidth, &inputHeight));
+
+				if (outputSize.has_value())
+				{
+					if (outputSize.value().cx != inputWidth || outputSize.value().cy != inputHeight)
+					{
+						continue;
+					}
+				}
+
+
 				LogMediaType(pInputMediaType);
 				if (ppOutputMediaType) {
 					SafeRelease(&pMediaTransform);
+					hr = pSourceReader->SetCurrentMediaType(streamIndex, NULL, pInputMediaType);
 					hr = CreateIMFTransform(streamIndex, pInputMediaType, &pMediaTransform, &pOutputMediaType);
 					if (FAILED(hr)) {
 						LOG_INFO("Failed to create a valid media output type for video reader, attempting to create an intermediate transform");

@@ -11,6 +11,7 @@ public:
 protected:
 	virtual HRESULT InitializeSourceReader(
 		_In_ std::wstring source,
+		_In_ std::optional<SIZE> outputSize,
 		_Out_ long *pStreamIndex,
 		_Outptr_ IMFSourceReader **ppSourceReader,
 		_Outptr_ IMFMediaType **ppInputMediaType,
@@ -19,6 +20,7 @@ protected:
 private:
 	HRESULT InitializeMediaSource(
 		_In_ IMFActivate *pDevice,
+		_In_ std::optional<SIZE> outputSize,
 		_Out_ long *pStreamIndex,
 		_Outptr_ IMFSourceReader **ppSourceReader,
 		_Outptr_ IMFMediaType **ppInputMediaType,

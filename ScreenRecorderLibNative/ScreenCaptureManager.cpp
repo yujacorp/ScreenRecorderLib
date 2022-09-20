@@ -193,7 +193,7 @@ HRESULT ScreenCaptureManager::AcquireNextFrame(_In_  DWORD timeoutMillis, _Inout
 		}
 
 		pFrame->Frame = pDesktopFrame;
-		pFrame->PtrInfo = m_PtrInfo;
+		pFrame->PtrInfo = &m_PtrInfo;
 		pFrame->FrameUpdateCount = updatedFrameCount;
 		pFrame->OverlayUpdateCount = updatedOverlaysCount;
 	}
@@ -590,10 +590,10 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 			}
 			case RecordingSourceType::Display: {
 				if (pSource->SourceApi == RecordingSourceApi::DesktopDuplication) {
-					pRecordingSourceCapture = make_unique<DesktopDuplicationCapture>();
+					pRecordingSourceCapture = make_unique<DesktopDuplicationCapture>(pSource->IsCursorCaptureEnabled.value_or(false));
 				}
 				else if (pSource->SourceApi == RecordingSourceApi::WindowsGraphicsCapture) {
-					pRecordingSourceCapture = make_unique<WindowsGraphicsCapture>();
+					pRecordingSourceCapture = make_unique<WindowsGraphicsCapture>(pSource->IsCursorCaptureEnabled.value_or(false));
 				}
 				break;
 			}
@@ -649,7 +649,7 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 		hr = pRecordingSourceCapture->Initialize(pSourceData->DxRes.Context, pSourceData->DxRes.Device);
 		if (FAILED(hr))
 		{
-			LOG_ERROR(L"Failed to initialize recording source %ls", pRecordingSourceCapture->Name().c_str());
+			LOG_ERROR(L"Failed to initialize recording source %ls",pRecordingSourceCapture->Name().c_str());
 			goto Exit;
 		}
 		hr = pRecordingSourceCapture->StartCapture(*pSource);
@@ -734,17 +734,13 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 					LONGLONG waitTimeMillis = duration_cast<milliseconds>(chrono::steady_clock::now() - WaitForFrameBegin).count();
 					LOG_TRACE(L"CaptureThreadProc waited for busy shared surface for %lld ms", waitTimeMillis);
 				}
-				if (pSource->IsCursorCaptureEnabled.value_or(true)) {
+				if (pSource->IsCursorCaptureEnabled.value_or(false)) {
 					// Get mouse info
 					hr = pRecordingSourceCapture->GetMouse(pData->PtrInfo, pSourceData->FrameCoordinates, pSourceData->OffsetX, pSourceData->OffsetY);
 					if (FAILED(hr)) {
 						LOG_ERROR("Failed to get mouse data");
 					}
 				}
-				else if (pData->PtrInfo) {
-					pData->PtrInfo->Visible = false;
-				}
-
 				if (pSource->IsVideoCaptureEnabled.value_or(true)) {
 					if (IsSharedSurfaceDirty) {
 						//The screen has been blacked out, so we restore a full frame to the shared surface before starting to apply updates.
@@ -762,6 +758,7 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 						IsCapturingVideo = false;
 					}
 				}
+
 			}
 			if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
 				continue;
