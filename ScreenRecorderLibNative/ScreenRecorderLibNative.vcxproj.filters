@@ -159,6 +159,18 @@
     <ClInclude Include="DynamicWait.h">
       <Filter>Header Files\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="CaptureMemberFunctionCallbackBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DshowCapture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="qedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoCamLib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RecordingManager.cpp">
@@ -238,6 +250,12 @@
     </ClCompile>
     <ClCompile Include="Util.cpp">
       <Filter>Source Files\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="CaptureMemberFunctionCallbackBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DshowCapture.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

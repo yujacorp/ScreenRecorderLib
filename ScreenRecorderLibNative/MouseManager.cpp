@@ -110,10 +110,16 @@ HRESULT MouseManager::Initialize(_In_ ID3D11DeviceContext *pDeviceContext, _In_ 
 	m_DeviceContext = pDeviceContext;
 	m_MouseOptions = pOptions;
 
-	StopMouseClickDetection();
-	CloseHandle(m_StopPollingTaskEvent);
-	m_StopPollingTaskEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-	InitializeMouseClickDetection();
+	if (pOptions->IsMousePointerEnabled())
+	{
+		if (m_MouseOptions->IsMouseDuplicateClicksDetected())
+		{
+			StopMouseClickDetection();
+			CloseHandle(m_StopPollingTaskEvent);
+			m_StopPollingTaskEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+			InitializeMouseClickDetection();
+		}
+	}
 	return hr;
 }
 
@@ -169,7 +175,9 @@ void MouseManager::InitializeMouseClickDetection()
 
 void MouseManager::StopMouseClickDetection()
 {
-	if (m_MouseHookThread) {
+	if (m_MouseOptions->IsMouseDuplicateClicksDetected())
+	{
+		if (m_MouseHookThread) {
 		PostThreadMessageA(m_MouseHookThreadId, ET_QUITLOOP, 0, 0);
 		DWORD dwWaitResult = WaitForSingleObjectEx(m_MouseHookThread, 5000, false);
 		if (dwWaitResult != WAIT_OBJECT_0) {
@@ -177,12 +185,13 @@ void MouseManager::StopMouseClickDetection()
 		}
 		m_MouseHookThread = nullptr;
 		m_MouseHookThreadId = 0;
+		}
+		if (!pollingTask.is_done()) {
+			SetEvent(m_StopPollingTaskEvent);
+			pollingTask.wait();
+		}
+		m_IsCapturingMouseClicks = false;
 	}
-	if (!pollingTask.is_done()) {
-		SetEvent(m_StopPollingTaskEvent);
-		pollingTask.wait();
-	}
-	m_IsCapturingMouseClicks = false;
 }
 
 HRESULT MouseManager::InitMouseClickTexture(_In_ ID3D11DeviceContext *pDeviceContext, _In_ ID3D11Device *pDevice) {

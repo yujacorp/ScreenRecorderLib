@@ -7,7 +7,7 @@
 using namespace System;
 using namespace System::Collections::Generic;
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 	public enum class LogLevel
 	{
 		Trace = 0,
@@ -140,7 +140,7 @@ namespace ScreenRecorderLibNew {
 		OutputOptions():DynamicOutputOptions(){
 			Stretch = StretchMode::Uniform;
 			OutputScaledScreenSize = ScreenSize::Empty;
-			RecorderMode = ScreenRecorderLibNew::RecorderMode::Video;
+			RecorderMode = ScreenRecorderLib::RecorderMode::Video;
 			IsPreviewOnly = true;
 			IsCustomSelectedArea = false;
 		}
@@ -183,11 +183,11 @@ namespace ScreenRecorderLibNew {
 			}
 		}
 
-		property ScreenRecorderLibNew::RecorderMode RecorderMode {
-			ScreenRecorderLibNew::RecorderMode get() {
+		property ScreenRecorderLib::RecorderMode RecorderMode {
+			ScreenRecorderLib::RecorderMode get() {
 				return _recorderMode;
 			}
-			void set(ScreenRecorderLibNew::RecorderMode value) {
+			void set(ScreenRecorderLib::RecorderMode value) {
 				_recorderMode = value;
 				OnPropertyChanged("RecorderMode");
 			}
@@ -231,12 +231,12 @@ namespace ScreenRecorderLibNew {
 			Framerate = 30;
 			Quality = 70;
 			Bitrate = 4000 * 1000;
-			IsFixedFramerate = false;
+			IsFixedFramerate = true;
 			IsThrottlingDisabled = false;
 			IsLowLatencyEnabled = false;
 			IsHardwareEncodingEnabled = true;
-			IsMp4FastStartEnabled = true;
-			IsFragmentedMp4Enabled = false;
+			IsMp4FastStartEnabled = false;
+			IsFragmentedMp4Enabled = true;
 			Encoder = gcnew H264VideoEncoder();
 		}
 		virtual event PropertyChangedEventHandler^ PropertyChanged;
@@ -674,9 +674,11 @@ namespace ScreenRecorderLibNew {
 	public ref class MouseOptions :DynamicMouseOptions {
 	private:
 		MouseDetectionMode _mouseClickDetectionMode;
+		bool _duplicateMouseClickDetection;
 	public:
 		MouseOptions() :DynamicMouseOptions() {
 			MouseClickDetectionMode = MouseDetectionMode::Polling;
+			DuplicateMouseClickDetection = false;
 			IsMousePointerEnabled = true;
 			IsMouseClicksDetected = false;
 			MouseLeftClickDetectionColor = "#FFFF00";
@@ -684,6 +686,7 @@ namespace ScreenRecorderLibNew {
 			MouseClickDetectionRadius = 20;
 			MouseClickDetectionDuration = 50;
 		}
+
 		/// <summary>
 		/// The mode for detecting mouse clicks. Default is Polling.
 		/// </summary>
@@ -694,6 +697,19 @@ namespace ScreenRecorderLibNew {
 			void set(MouseDetectionMode value) {
 				_mouseClickDetectionMode = value;
 				OnPropertyChanged("MouseClickDetectionMode");
+			}
+		}
+
+		/// <summary>
+		/// Detecting duplicate mouse clicks.
+		/// </summary>
+		property bool DuplicateMouseClickDetection {
+			bool get() {
+				return _duplicateMouseClickDetection;
+			}
+			void set(bool value) {
+				_duplicateMouseClickDetection = value;
+				OnPropertyChanged("DuplicateMouseClickDetection");
 			}
 		}
 	};
@@ -785,21 +801,21 @@ namespace ScreenRecorderLibNew {
 		static property RecorderOptions^ Default {
 			RecorderOptions^ get() {
 				RecorderOptions^ rec = gcnew RecorderOptions();
-				rec->SourceOptions = gcnew ScreenRecorderLibNew::SourceOptions();
-				rec->AudioOptions = gcnew ScreenRecorderLibNew::AudioOptions();
-				rec->LogOptions = gcnew ScreenRecorderLibNew::LogOptions();
-				rec->MouseOptions = gcnew ScreenRecorderLibNew::MouseOptions();
-				rec->OutputOptions = gcnew ScreenRecorderLibNew::OutputOptions();
-				rec->OverlayOptions = gcnew ScreenRecorderLibNew::OverLayOptions();
-				rec->SnapshotOptions = gcnew ScreenRecorderLibNew::SnapshotOptions();
-				rec->VideoEncoderOptions = gcnew ScreenRecorderLibNew::VideoEncoderOptions();
+				rec->SourceOptions = gcnew ScreenRecorderLib::SourceOptions();
+				rec->AudioOptions = gcnew ScreenRecorderLib::AudioOptions();
+				rec->LogOptions = gcnew ScreenRecorderLib::LogOptions();
+				rec->MouseOptions = gcnew ScreenRecorderLib::MouseOptions();
+				rec->OutputOptions = gcnew ScreenRecorderLib::OutputOptions();
+				rec->OverlayOptions = gcnew ScreenRecorderLib::OverLayOptions();
+				rec->SnapshotOptions = gcnew ScreenRecorderLib::SnapshotOptions();
+				rec->VideoEncoderOptions = gcnew ScreenRecorderLib::VideoEncoderOptions();
 				return rec;
 			}
 		}
 		static property RecorderOptions^ DefaultMainMonitor {
 			RecorderOptions^ get() {
 				RecorderOptions^ rec = Default;
-				rec->SourceOptions = ScreenRecorderLibNew::SourceOptions::MainMonitor;
+				rec->SourceOptions = ScreenRecorderLib::SourceOptions::MainMonitor;
 				return rec;
 			}
 		}

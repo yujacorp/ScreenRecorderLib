@@ -11,6 +11,7 @@ typedef void(__stdcall *CallbackErrorFunction)(std::wstring, std::wstring);
 typedef void(__stdcall *CallbackSnapshotFunction)(std::wstring);
 typedef void(__stdcall *CallbackFrameNumberChangedFunction)(int, INT64);
 typedef void(__stdcall *CallbackAudioVolumeChangedFunction)(int);
+typedef void(__stdcall *CallbackRawFrameUpdateFunction)(BYTE[], long, long);
 
 #define STATUS_IDLE 0
 #define STATUS_RECORDING 1
@@ -31,6 +32,7 @@ public:
 	CallbackSnapshotFunction RecordingSnapshotCreatedCallback;
 	CallbackFrameNumberChangedFunction RecordingFrameNumberChangedCallback;
 	CallbackAudioVolumeChangedFunction AudioRecordingVolumeChangedCallback;
+	CallbackRawFrameUpdateFunction RawFrameUpdateCallback;
 	HRESULT BeginRecording(_In_opt_ std::wstring path);
 	HRESULT BeginRecording(_In_opt_ std::wstring path, _In_opt_ IStream *stream);
 	HRESULT BeginRecording(_In_opt_ IStream *stream);

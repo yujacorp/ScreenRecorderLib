@@ -1,8 +1,8 @@
 #pragma once
-#include "../ScreenRecorderLibNativeNew/Native.h"
+#include "../ScreenRecorderLibNative/Native.h"
 using namespace System;
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 
 	public ref class RecordingOverlayBase abstract : public INotifyPropertyChanged {
 	private:

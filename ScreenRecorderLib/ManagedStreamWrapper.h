@@ -8,7 +8,7 @@ typedef void(__stdcall WriteFnc)(System::IntPtr, int offset, int count);
 typedef void(__stdcall SetLengthFnc)(long long value);
 typedef long long(__stdcall GetLengthFnc)();
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 	public ref class ManagedStreamWrapper
 	{
 	public:

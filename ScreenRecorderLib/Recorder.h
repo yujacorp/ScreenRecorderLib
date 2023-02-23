@@ -4,7 +4,7 @@
 #include <vcclr.h>
 #include <vector>
 #include <set>
-#include "../ScreenRecorderLibNativeNew/Native.h"
+#include "../ScreenRecorderLibNative/Native.h"
 #include "ManagedIStream.h"
 #include "Win32WindowEnumeration.h"
 #include "Coordinates.h"
@@ -23,8 +23,9 @@ delegate void InternalErrorCallbackDelegate(std::wstring error, std::wstring pat
 delegate void InternalSnapshotCallbackDelegate(std::wstring path);
 delegate void InternalFrameNumberCallbackDelegate(int newFrameNumber, INT64 timestamp);
 delegate void InternalAudioVolumeCallbackDelegate(int volume);
+delegate void RawFrameUpdateCallbackDelegate(BYTE data[], long width, long height);
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 
 	ref class DynamicOptionsBuilder;
 
@@ -63,12 +64,14 @@ namespace ScreenRecorderLibNew {
 		void CreateSnapshotCallback();
 		void CreateFrameNumberCallback();
 		void CreateAudioVolumeCallback();
+		void CreateRawFrameUpdateCallback();
 		void EventComplete(std::wstring path, nlohmann::fifo_map<std::wstring, int> delays);
 		void EventFailed(std::wstring error, std::wstring path);
 		void EventStatusChanged(int status);
 		void EventSnapshotCreated(std::wstring str);
 		void FrameNumberChanged(int newFrameNumber, INT64 timestamp);
 		void AudioVolumeChanged(int volume);
+		void RawFrameUpdateChanged(BYTE data[], long width, long height);
 		void SetupCallbacks();
 		void ClearCallbacks();
 		static HRESULT CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedSource, _Out_ RECORDING_SOURCE* pNativeSource);
@@ -88,6 +91,7 @@ namespace ScreenRecorderLibNew {
 		GCHandle _snapshotDelegateGcHandler;
 		GCHandle _frameNumberDelegateGcHandler;
 		GCHandle _audioVolumeDelegateGcHandler;
+		GCHandle _rawFrameUpdateDelegateGcHandler;
 
 	internal:
 		void SetDynamicOptions(DynamicOptions^ options);
@@ -142,6 +146,7 @@ namespace ScreenRecorderLibNew {
 		event EventHandler<SnapshotSavedEventArgs^>^ OnSnapshotSaved;
 		event EventHandler<FrameRecordedEventArgs^>^ OnFrameRecorded;
 		event EventHandler<AudioRecordingVolumeEventArgs^>^ OnAudioVolumeChanged;
+		event EventHandler<RawFrameUpdateEventArgs^>^ OnRawFrameUpdate;
 	};
 
 	public ref class DynamicOptionsBuilder {

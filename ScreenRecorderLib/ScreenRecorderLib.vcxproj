@@ -86,13 +86,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>$(DXSDK_DIR)\lib\x86;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(ProjectDir)\..\ScreenRecorderLibNative\;$(DXSDK_DIR)\lib\x86;$(LibraryPath)</LibraryPath>
     <OutDir>bin\$(PlatformTarget)\$(Configuration)\</OutDir>
     <IntDir>obj\$(PlatformTarget)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>$(DXSDK_DIR)\lib\x64;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(ProjectDir)\..\ScreenRecorderLibNative\;$(DXSDK_DIR)\lib\x64;$(LibraryPath)</LibraryPath>
     <OutDir>bin\$(PlatformTarget)\$(Configuration)\</OutDir>
     <IntDir>obj\$(PlatformTarget)\$(Configuration)\</IntDir>
   </PropertyGroup>
@@ -109,6 +109,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\ScreenRecorderLibNative;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ProjectReference>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
@@ -131,6 +132,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\ScreenRecorderLibNative;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <FxCompile>
       <EntryPointName>main</EntryPointName>
@@ -151,6 +153,7 @@
     <Link />
     <Link>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\ScreenRecorderLibNative;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -166,6 +169,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\ScreenRecorderLibNative;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -201,6 +205,15 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="..\ScreenRecorderLibNative\VideoCamLib.dll">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <TreatOutputAsContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</TreatOutputAsContent>
+      <RootFolder Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\ScreenRecorderLibNative</RootFolder>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ScreenRecorderLibNative\ScreenRecorderLibNative.vcxproj">

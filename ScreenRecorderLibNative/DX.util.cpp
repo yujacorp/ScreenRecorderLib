@@ -9,6 +9,7 @@
 #include "WindowsGraphicsCapture.h"
 #include "PixelShader.h"
 #include "VertexShader.h"
+#include "DshowCapture.h"
 #include <dxgi1_6.h>
 
 using namespace DirectX;
@@ -158,7 +159,7 @@ HRESULT GetOutputRectsForRecordingSources(_In_ const std::vector<RECORDING_SOURC
 		}
 
 		return offsetSourceRect;
-});
+	});
 
 	for each (RECORDING_SOURCE * source in sources)
 	{
@@ -208,8 +209,17 @@ HRESULT GetOutputRectsForRecordingSources(_In_ const std::vector<RECORDING_SOURC
 			}
 			case RecordingSourceType::CameraCapture: {
 				SIZE size{};
-				CameraCapture reader{};
-				HRESULT hr = reader.GetNativeSize(*source, &size);
+				HRESULT hr = S_OK;
+				if (source->UseDirectShowForCameraCapture.value_or(false))
+				{
+					DshowCapture reader{};
+					hr = reader.GetNativeSize(*source, &size);
+				}
+				else 
+				{
+					CameraCapture reader{};
+					hr = reader.GetNativeSize(*source, &size);
+				}
 				if (SUCCEEDED(hr)) {
 					RECT sourceRect = GetOffsetSourceRect(RECT{ 0,0,size.cx,size.cy }, source);
 					std::pair<RECORDING_SOURCE *, RECT> tuple(source, sourceRect);
@@ -268,7 +278,8 @@ HRESULT GetOutputRectsForRecordingSources(_In_ const std::vector<RECORDING_SOURC
 	}
 
 	*outputs = validOutputs;
-	return S_OK;
+
+	return validOutputs.size() > 0 ? S_OK : E_INVALIDARG;
 }
 
 HRESULT GetMainOutput(_Outptr_result_maybenull_ IDXGIOutput **ppOutput) {

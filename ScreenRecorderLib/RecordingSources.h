@@ -24,12 +24,18 @@ namespace ScreenRecorderLib {
 		StretchMode _stretch;
 		ScreenRect^ _sourceRect;
 		bool _isVideoCaptureEnabled;
+		bool _horizontalFlip;
+		bool _verticalFlip;
+		bool _isDshowCaptureEnabled;
 	internal:
 		RecordingSourceBase() {
 			ID = Guid::NewGuid().ToString();
 			Stretch = StretchMode::Uniform;
 			AnchorPoint = Anchor::Center;
-			IsVideoCaptureEnabled = true;
+			IsVideoCaptureEnabled = false;
+			HorizontalFlip = false;
+			VerticalFlip = false;
+			IsDshowCaptureEnabled = false;
 		}
 		RecordingSourceBase(RecordingSourceBase^ base) :RecordingSourceBase() {
 			ID = base->ID;
@@ -39,6 +45,9 @@ namespace ScreenRecorderLib {
 			Stretch = base->Stretch;
 			SourceRect = base->SourceRect;
 			IsVideoCaptureEnabled = base->IsVideoCaptureEnabled;
+			HorizontalFlip = base->HorizontalFlip;
+			VerticalFlip = base->VerticalFlip;
+			IsDshowCaptureEnabled = base->_isDshowCaptureEnabled;
 		}
 	public:
 		virtual event PropertyChangedEventHandler^ PropertyChanged;
@@ -119,6 +128,33 @@ namespace ScreenRecorderLib {
 			void set(bool value) {
 				_isVideoCaptureEnabled = value;
 				OnPropertyChanged("IsVideoCaptureEnabled");
+			}
+		}
+		property bool HorizontalFlip {
+			bool get() {
+				return _horizontalFlip;
+			}
+			void set(bool value) {
+				_horizontalFlip = value;
+				OnPropertyChanged("HorizontalFlip");
+			}
+		}
+		property bool VerticalFlip {
+			bool get() {
+				return _verticalFlip;
+			}
+			void set(bool value) {
+				_verticalFlip = value;
+				OnPropertyChanged("VerticalFlip");
+			}
+		}
+		property bool IsDshowCaptureEnabled {
+			bool get() {
+				return _isDshowCaptureEnabled;
+			}
+			void set(bool value) {
+				_isDshowCaptureEnabled = value;
+				OnPropertyChanged("IsDshowCaptureEnabled");
 			}
 		}
 		void OnPropertyChanged(String^ info)

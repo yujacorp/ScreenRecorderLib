@@ -20,10 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioManager.h" />
+    <ClInclude Include="CaptureMemberFunctionCallbackBase.h" />
     <ClInclude Include="CMFSinkWriterCallback.h" />
+    <ClInclude Include="DshowCapture.h" />
     <ClInclude Include="DynamicWait.h" />
     <ClInclude Include="ImageReader.h" />
     <ClInclude Include="OutputManager.h" />
+    <ClInclude Include="qedit.h" />
     <ClInclude Include="ScreenCaptureBase.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="ScreenCaptureManager.h" />
@@ -39,6 +42,7 @@
     <ClInclude Include="CaptureBase.h" />
     <ClInclude Include="Screengrab.h" />
     <ClInclude Include="AudioPrefs.h" />
+    <ClInclude Include="VideoCamLib.h" />
     <ClInclude Include="WindowsGraphicsCapture.h" />
     <ClInclude Include="WindowsGraphicsCapture.util.h" />
     <ClInclude Include="Cleanup.h" />
@@ -55,6 +59,8 @@
   <ItemGroup>
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="CaptureBase.cpp" />
+    <ClCompile Include="CaptureMemberFunctionCallbackBase.cpp" />
+    <ClCompile Include="DshowCapture.cpp" />
     <ClCompile Include="DynamicWait.cpp" />
     <ClCompile Include="ImageReader.cpp" />
     <ClCompile Include="Log.cpp" />
@@ -233,6 +239,9 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)copyVideoCamLib.bat $(Configuration)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -254,6 +263,9 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)copyVideoCamLib.bat $(Configuration)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -272,6 +284,9 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)copyVideoCamLib.bat $(Configuration)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -293,6 +308,9 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>D3D11.lib;dxgi.lib;Mfuuid.lib;Mfplat.lib;evr.lib;mfreadwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)copyVideoCamLib.bat $(Configuration)</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

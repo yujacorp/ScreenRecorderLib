@@ -1,3 +1,6 @@
+#ifndef _COMMONTYPES_H_
+#define _COMMONTYPES_H_
+
 #pragma once
 #include <d3d11.h>
 #include <dxgi1_2.h>
@@ -12,6 +15,31 @@
 #include <wincodec.h>
 #include <chrono>
 #include "util.h"
+#include <windows.h>
+#include <new>
+
+#define NUMVERTICES 6
+#define BPP         4
+
+#define OCCLUSION_STATUS_MSG WM_USER
+
+extern HRESULT SystemTransitionsExpectedErrors[];
+extern HRESULT CreateDuplicationExpectedErrors[];
+extern HRESULT FrameInfoExpectedErrors[];
+extern HRESULT AcquireFrameExpectedError[];
+extern HRESULT EnumOutputsExpectedErrors[];
+
+typedef _Return_type_success_(return == DUPL_RETURN_SUCCESS) enum
+{
+	DUPL_RETURN_SUCCESS = 0,
+	DUPL_RETURN_ERROR_EXPECTED = 1,
+	DUPL_RETURN_ERROR_UNEXPECTED = 2
+}DUPL_RETURN;
+
+_Post_satisfies_(return != DUPL_RETURN_SUCCESS)
+DUPL_RETURN ProcessFailure(_In_opt_ ID3D11Device * Device, _In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr, _In_opt_z_ HRESULT * ExpectedErrors = nullptr);
+
+void DisplayMsg(_In_ LPCWSTR Str, _In_ LPCWSTR Title, HRESULT hr);
 
 struct REC_RESULT {
 	HRESULT RecordingResult;
@@ -126,6 +154,10 @@ struct DX_RESOURCES
 	ID3D11Device *Device;
 	ID3D11DeviceContext *Context;
 	ID3D11Debug *Debug;
+	ID3D11VertexShader *VertexShader;
+	ID3D11PixelShader *PixelShader;
+	ID3D11InputLayout *InputLayout;
+	ID3D11SamplerState *SamplerLinear;
 };
 
 
@@ -135,8 +167,7 @@ struct DX_RESOURCES
 struct CAPTURED_FRAME
 {
 	ID3D11Texture2D *Frame;
-	//Contains the mouse cursor info for the frame, if any.
-	std::optional<PTR_INFO> PtrInfo;
+	PTR_INFO *PtrInfo;
 	//The number of updates written to the current frame since last fetch.
 	int FrameUpdateCount;
 	//The number of updates written to the frame overlays since last fetch.
@@ -149,7 +180,8 @@ enum class RecorderModeInternal {
 	///<summary>Record a slideshow of pictures. </summary>
 	Slideshow = 1,
 	///<summary>Create a single screenshot.</summary>
-	Screenshot = 2
+	Screenshot = 2, 
+	Preview = 3
 };
 
 enum class TextureStretchMode {
@@ -214,8 +246,15 @@ struct RECORDING_SOURCE_BASE abstract {
 	/// </summary>
 	std::optional<bool> IsVideoCaptureEnabled;
 	/// <summary>
-	/// Determines if the source is capturing mouse cursors. If false, it will be hidden.
+	/// Flip the source image horizontally.
 	/// </summary>
+	bool HorizontalFlip;
+	/// <summary>
+	/// Flip the source image vertically.
+	/// </summary>
+	bool VerticalFlip;
+
+	std::optional<bool> UseDirectShowForCameraCapture;
 	std::optional<bool> IsCursorCaptureEnabled;
 	/// <summary>
 	/// Toggles the display of a yellow border around recorded displays and windows when using Windows Graphics Capture on Windows 10 2104 or newer. If false, it will be hidden.
@@ -231,6 +270,9 @@ struct RECORDING_SOURCE_BASE abstract {
 		Stretch(TextureStretchMode::Uniform),
 		Anchor(ContentAnchor::TopLeft),
 		IsVideoCaptureEnabled(std::nullopt),
+		HorizontalFlip(false),
+		VerticalFlip(false),
+		UseDirectShowForCameraCapture(std::nullopt),
 		IsCursorCaptureEnabled(std::nullopt),
 		IsBorderRequired(std::nullopt)
 	{
@@ -273,6 +315,7 @@ struct RECORDING_OVERLAY_DATA
 struct RECORDING_SOURCE : RECORDING_SOURCE_BASE
 {
 	std::optional<RecordingSourceApi> SourceApi;
+	std::optional<bool> IsCursorCaptureEnabled;
 	/// <summary>
 	/// An optional custom area of the source to record. Must be equal or smaller than the source area. A smaller area will crop the source.
 	/// </summary>
@@ -284,6 +327,7 @@ struct RECORDING_SOURCE : RECORDING_SOURCE_BASE
 
 	RECORDING_SOURCE() :
 		RECORDING_SOURCE_BASE(),
+		IsCursorCaptureEnabled(std::nullopt),
 		SourceRect{ std::nullopt },
 		Position{ std::nullopt },
 		SourceApi(std::nullopt)
@@ -339,17 +383,6 @@ struct THREAD_DATA_BASE
 //
 // Structure to pass to a new thread
 //
-struct CAPTURE_THREAD_DATA :THREAD_DATA_BASE
-{
-	RECORDING_SOURCE_DATA *RecordingSource{ nullptr };
-	INT UpdatedFrameCountSinceLastWrite{};
-	INT64 TotalUpdatedFrameCount{};
-	PTR_INFO *PtrInfo{ nullptr };
-};
-
-//
-// Structure to pass to a new thread
-//
 struct OVERLAY_THREAD_DATA :THREAD_DATA_BASE
 {
 	////Handle to shared overlay texture
@@ -361,6 +394,7 @@ struct MOUSE_OPTIONS {
 protected:
 	bool m_IsMouseClicksDetected = false;
 	bool m_IsMousePointerEnabled = true;
+	bool m_IsDuplicateMouseClick = false;
 	std::string m_MouseClickDetectionLMBColor = "#FFFF00";
 	std::string m_MouseClickDetectionRMBColor = "#FFFF00";
 	UINT32 m_MouseClickDetectionRadius = 20;
@@ -372,6 +406,7 @@ public:
 
 	void SetMousePointerEnabled(bool value) { m_IsMousePointerEnabled = value; }
 	void SetDetectMouseClicks(bool value) { m_IsMouseClicksDetected = value; }
+	void SetIsDuplicateMouseClicks(bool value) { m_IsDuplicateMouseClick = value; }
 	void SetMouseClickDetectionLMBColor(std::string value) { m_MouseClickDetectionLMBColor = value; }
 	void SetMouseClickDetectionRMBColor(std::string value) { m_MouseClickDetectionRMBColor = value; }
 	void SetMouseClickDetectionRadius(int value) { m_MouseClickDetectionRadius = value; }
@@ -379,6 +414,7 @@ public:
 	void SetMouseClickDetectionDuration(int value) { m_MouseClickDetectionDurationMillis = value; }
 
 	bool IsMouseClicksDetected() { return m_IsMouseClicksDetected; }
+	bool IsMouseDuplicateClicksDetected() { return m_IsDuplicateMouseClick; }
 	bool IsMousePointerEnabled() { return m_IsMousePointerEnabled; }
 	std::string GetMouseClickDetectionLMBColor() { return m_MouseClickDetectionLMBColor; }
 	std::string GetMouseClickDetectionRMBColor() { return m_MouseClickDetectionRMBColor; }
@@ -432,19 +468,28 @@ public:
 struct OUTPUT_OPTIONS {
 protected:
 	SIZE m_FrameSize{};
+	SIZE m_ScaledSreenSize{};
 	RECT m_SourceRect{};
 	TextureStretchMode m_Stretch = TextureStretchMode::Uniform;
 	RecorderModeInternal m_RecorderMode = RecorderModeInternal::Video;
+	bool m_IsPreviewOnly = true;
+	bool m_IsCustomSelectedArea = false;
 	bool m_IsVideoCaptureEnabled = true;
 public:
 	SIZE GetFrameSize() { return m_FrameSize; }
 	void SetFrameSize(SIZE size) { m_FrameSize = size; }
+	SIZE GetScaledScreenSize() { return m_ScaledSreenSize; }
+	void SetScaledScreenSize(SIZE size) { m_ScaledSreenSize = size; }
 	void SetSourceRectangle(RECT rect) { m_SourceRect = MakeRectEven(rect); }
 	RECT GetSourceRectangle() { return m_SourceRect; }
 	void SetStretch(TextureStretchMode stretch) { m_Stretch = stretch; }
 	TextureStretchMode GetStretch() { return m_Stretch; }
 	RecorderModeInternal GetRecorderMode() { return m_RecorderMode; }
+	bool GetIsPreviewOnly() { return m_IsPreviewOnly; }
+	bool GetIsCustomSelectedArea() { return m_IsCustomSelectedArea; }
 	void SetRecorderMode(RecorderModeInternal recorderMode) { m_RecorderMode = recorderMode; }
+	void SetIsPreviewOnly(bool isPreviewOnly) { m_IsPreviewOnly = isPreviewOnly; }
+	void SetIsCustomSelectedArea(bool isCusSelArea) { m_IsCustomSelectedArea = isCusSelArea; }
 	bool IsVideoCaptureEnabled() { return m_IsVideoCaptureEnabled; }
 	void SetVideoCaptureEnabled(bool value) { m_IsVideoCaptureEnabled = value; }
 
@@ -556,3 +601,17 @@ public:
 		}
 	}
 };
+
+//
+// Structure to pass to a new thread
+//
+struct CAPTURE_THREAD_DATA :THREAD_DATA_BASE
+{
+	RECORDING_SOURCE_DATA *RecordingSource{ nullptr };
+	INT UpdatedFrameCountSinceLastWrite{};
+	INT64 TotalUpdatedFrameCount{};
+	PTR_INFO *PtrInfo{ nullptr };
+	std::shared_ptr<ENCODER_OPTIONS> EncoderOptions{};
+};
+
+#endif

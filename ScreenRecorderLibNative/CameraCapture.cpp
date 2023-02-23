@@ -11,6 +11,7 @@ CameraCapture::~CameraCapture()
 
 HRESULT CameraCapture::InitializeSourceReader(
 	_In_ std::wstring source,
+	_In_ std::optional<SIZE> outputSize,
 	_In_ std::optional<long> sourceFormatIndex,
 	_Out_ long *pStreamIndex,
 	_Outptr_ IMFSourceReader **ppSourceReader,
@@ -73,7 +74,7 @@ HRESULT CameraCapture::InitializeSourceReader(
 		CComPtr<IMFMediaSource> pSource = nullptr;
 		CONTINUE_ON_BAD_HR(hr = pDevice->ActivateObject(__uuidof(IMFMediaSource), (void **)&pSource));
 		LOG_TRACE(L"Try to initialize media source");
-		CONTINUE_ON_BAD_HR(hr = InitializeMediaSource(pSource, sourceFormatIndex, pStreamIndex, ppSourceReader, ppInputMediaType, ppOutputMediaType, ppMediaTransform));
+		CONTINUE_ON_BAD_HR(hr = InitializeMediaSource(pSource, outputSize, sourceFormatIndex, pStreamIndex, ppSourceReader, ppInputMediaType, ppOutputMediaType, ppMediaTransform));
 
 		WCHAR *nameString = NULL;
 		// Get the human-friendly name of the device
@@ -87,7 +88,6 @@ HRESULT CameraCapture::InitializeSourceReader(
 			//allocate a byte buffer for the raw pixel data
 			m_DeviceName = std::wstring(nameString);
 		}
-		pDevice->ShutdownObject();
 		CoTaskMemFree(nameString);
 	}
 	if (FAILED(hr))
@@ -99,6 +99,7 @@ HRESULT CameraCapture::InitializeSourceReader(
 
 HRESULT CameraCapture::InitializeMediaSource(
 	_In_ CComPtr<IMFMediaSource> pSource,
+	_In_ std::optional<SIZE> outputSize,
 	_In_ std::optional<long> sourceFormatIndex,
 	_Out_ long *pStreamIndex,
 	_Outptr_ IMFSourceReader **ppSourceReader,
@@ -133,9 +134,14 @@ HRESULT CameraCapture::InitializeMediaSource(
 	// Try to find a suitable output type.
 	if (SUCCEEDED(hr))
 	{
-		for (DWORD mediaTypeIndex = sourceFormatIndex.value_or(0); ; mediaTypeIndex++)
+		GUID subTypeList[] = { MFVideoFormat_NV12, MFVideoFormat_MJPG };
+		int subTypeIndex = 0;
+		bool useAlternateFormat = false;
+		bool useDefaultResolution = false;
+
+		for (DWORD streamIndex = 0; ; streamIndex++)
 		{
-			for (DWORD streamIndex = 0; ; streamIndex++)
+			for (DWORD mediaTypeIndex = sourceFormatIndex.value_or(0); ; mediaTypeIndex++)
 			{
 				CComPtr<IMFMediaType> pInputMediaType = nullptr;
 				CComPtr<IMFMediaType> pOutputMediaType = nullptr;
@@ -143,9 +149,36 @@ HRESULT CameraCapture::InitializeMediaSource(
 				hr = pSourceReader->GetNativeMediaType(streamIndex, mediaTypeIndex, &pInputMediaType);
 				if (FAILED(hr))
 				{
+					if (subTypeIndex < 1)
+					{
+						// Couldn't find NV12 format. Try with MJPG format
+						subTypeIndex++;
+						mediaTypeIndex = -1;
+						continue;
+					}
+					else if (subTypeIndex == 1)
+					{
+						// Couldn't find NV12 and MJPG format.
+						subTypeIndex++;
+						useAlternateFormat = true;
+						mediaTypeIndex = -1;
+						continue;
+					}
+					
+					if (subTypeIndex == 2 && !useDefaultResolution)
+					{
+						// Couldn't find NV12, MJPG format and default format. Most likely resolution didn't match. Use default resolution and start from NV12 format again.
+						subTypeIndex = 0;
+						useAlternateFormat = false;
+						useDefaultResolution = true;
+						mediaTypeIndex = -1;
+						continue;
+					}
+
 					noMoreMedia = true;
 					break;
 				}
+
 				GUID inputMajorType;
 				pInputMediaType->GetGUID(MF_MT_MAJOR_TYPE, &inputMajorType);
 				if (inputMajorType != MFMediaType_Video) {
@@ -153,9 +186,29 @@ HRESULT CameraCapture::InitializeMediaSource(
 				}
 				GUID inputSubType;
 				pInputMediaType->GetGUID(MF_MT_SUBTYPE, &inputSubType);
+
+				if (!useAlternateFormat && subTypeList[subTypeIndex] != inputSubType)
+				{
+					continue;
+				}
+
+				UINT32 inputWidth;
+				UINT32 inputHeight;
+				CONTINUE_ON_BAD_HR(MFGetAttributeSize(pInputMediaType, MF_MT_FRAME_SIZE, &inputWidth, &inputHeight));
+
+				if (!useDefaultResolution && outputSize.has_value())
+				{
+					if (outputSize.value().cx != inputWidth || outputSize.value().cy != inputHeight)
+					{
+						continue;
+					}
+				}
+
+
 				LogMediaType(pInputMediaType);
 				if (ppOutputMediaType) {
 					SafeRelease(&pMediaTransform);
+					CONTINUE_ON_BAD_HR(pSourceReader->SetCurrentMediaType(streamIndex, NULL, pInputMediaType));
 					hr = CreateIMFTransform(streamIndex, pInputMediaType, &pMediaTransform, &pOutputMediaType);
 					if (FAILED(hr)) {
 						LOG_INFO("Failed to create a valid media output type for video reader, attempting to create an intermediate transform");

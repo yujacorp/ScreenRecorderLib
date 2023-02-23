@@ -289,27 +289,27 @@ namespace TestApp
         }
         private void Overlay_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            switch (e.PropertyName)
-            {
-                case nameof(DisplayRecordingSource.IsCursorCaptureEnabled):
-                    {
-                        if (sender is DisplayOverlay)
-                        {
-                            _rec?.GetDynamicOptionsBuilder()
-                                    .SetCursorCaptureForOverlay(((DisplayOverlay)sender).ID, ((DisplayOverlay)sender).IsCursorCaptureEnabled)
-                                    .Apply();
-                        }
-                        else if (sender is DisplayOverlay)
-                        {
-                            _rec?.GetDynamicOptionsBuilder()
-                                    .SetCursorCaptureForOverlay(((DisplayOverlay)sender).ID, ((DisplayOverlay)sender).IsCursorCaptureEnabled)
-                                    .Apply();
-                        }
-                        break;
-                    }
-                default:
-                    break;
-            }
+            //switch (e.PropertyName)
+            //{
+            //    case nameof(DisplayRecordingSource.IsCursorCaptureEnabled):
+            //        {
+            //            if (sender is DisplayOverlay)
+            //            {
+            //                _rec?.GetDynamicOptionsBuilder()
+            //                        .SetCursorCaptureForOverlay(((DisplayOverlay)sender).ID, ((DisplayOverlay)sender).IsCursorCaptureEnabled)
+            //                        .Apply();
+            //            }
+            //            else if (sender is DisplayOverlay)
+            //            {
+            //                _rec?.GetDynamicOptionsBuilder()
+            //                        .SetCursorCaptureForOverlay(((DisplayOverlay)sender).ID, ((DisplayOverlay)sender).IsCursorCaptureEnabled)
+            //                        .Apply();
+            //            }
+            //            break;
+            //        }
+            //    default:
+            //        break;
+            //}
         }
         private void RecorderOptions_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

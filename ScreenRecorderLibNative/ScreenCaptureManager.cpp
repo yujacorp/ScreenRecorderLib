@@ -4,6 +4,7 @@
 #include "DesktopDuplicationCapture.h"
 #include "WindowsGraphicsCapture.h"
 #include "CameraCapture.h"
+#include "DshowCapture.h"
 #include "VideoReader.h"
 #include "ImageReader.h"
 #include "GifReader.h"
@@ -65,7 +66,7 @@ HRESULT ScreenCaptureManager::Initialize(_In_ ID3D11DeviceContext *pDeviceContex
 //
 // Start up threads for video capture
 //
-HRESULT ScreenCaptureManager::StartCapture(_In_ const std::vector<RECORDING_SOURCE *> &sources, _In_ const std::vector<RECORDING_OVERLAY *> &overlays, _In_  HANDLE hErrorEvent)
+HRESULT ScreenCaptureManager::StartCapture(_In_ const std::vector<RECORDING_SOURCE *> &sources, _In_ const std::vector<RECORDING_OVERLAY *> &overlays, _In_ std::shared_ptr<ENCODER_OPTIONS> encoderOptions, _In_  HANDLE hErrorEvent)
 {
 	EnterCriticalSection(&m_CriticalSection);
 	LeaveCriticalSectionOnExit leaveOnExit(&m_CriticalSection);
@@ -105,8 +106,11 @@ HRESULT ScreenCaptureManager::StartCapture(_In_ const std::vector<RECORDING_SOUR
 		m_CaptureThreadData[i].TerminateThreadsEvent = m_TerminateThreadsEvent;
 		m_CaptureThreadData[i].CanvasTexSharedHandle = sharedHandle;
 		m_CaptureThreadData[i].PtrInfo = &m_PtrInfo;
+		m_CaptureThreadData[i].EncoderOptions = encoderOptions;
 
 		m_CaptureThreadData[i].RecordingSource = data;
+		m_CaptureThreadData[i].EncoderOptions = encoderOptions;
+
 		RtlZeroMemory(&m_CaptureThreadData[i].RecordingSource->DxRes, sizeof(DX_RESOURCES));
 		RETURN_ON_BAD_HR(hr = InitializeDx(nullptr, &m_CaptureThreadData[i].RecordingSource->DxRes));
 		DWORD ThreadId;
@@ -637,13 +641,21 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 	CAPTURE_THREAD_DATA *pData = static_cast<CAPTURE_THREAD_DATA *>(Param);
 	RECORDING_SOURCE_DATA *pSourceData = pData->RecordingSource;
 	RECORDING_SOURCE *pSource = pSourceData->RecordingSource;
+	std::shared_ptr<ENCODER_OPTIONS> pEncoderOptions = pData->EncoderOptions;
 	//This scope must be here for ReleaseOnExit to work.
 	{
 		std::unique_ptr<CaptureBase> pRecordingSourceCapture = nullptr;
 		switch (pSource->Type)
 		{
 			case RecordingSourceType::CameraCapture: {
-				pRecordingSourceCapture = make_unique<CameraCapture>();
+				if (pSource->UseDirectShowForCameraCapture.value_or(false)) 
+				{
+					pRecordingSourceCapture = make_unique<DshowCapture>();
+				}
+				else
+				{
+					pRecordingSourceCapture = make_unique<CameraCapture>();
+				}
 				break;
 			}
 			case RecordingSourceType::Display: {
@@ -810,8 +822,8 @@ DWORD WINAPI CaptureThreadProc(_In_ void *Param)
 					hr = textureManager.DrawTexture(SharedSurf, pFrame, offsetFrameCoordinates);
 					IsSharedSurfaceDirty = false;
 				}
-
-				hr = pRecordingSourceCapture->WriteNextFrameToSharedSurface(0, SharedSurf, pSourceData->OffsetX, pSourceData->OffsetY, pSourceData->FrameCoordinates);
+				
+				hr = pRecordingSourceCapture->WriteNextFrameToSharedSurface(INFINITE, SharedSurf, pSourceData->OffsetX, pSourceData->OffsetY, pSourceData->FrameCoordinates);
 			}
 			else {
 				hr = textureManager.BlankTexture(SharedSurf, pSourceData->FrameCoordinates, pSourceData->OffsetX, pSourceData->OffsetY);

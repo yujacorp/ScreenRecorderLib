@@ -11,6 +11,7 @@ public:
 protected:
 	virtual HRESULT InitializeSourceReader(
 		_In_ std::wstring filePath,
+		_In_ std::optional<SIZE> outputSize,
 		_In_ std::optional<long> sourceFormatIndex,
 		_Out_ long *pStreamIndex,
 		_Outptr_ IMFSourceReader **ppSourceReader,

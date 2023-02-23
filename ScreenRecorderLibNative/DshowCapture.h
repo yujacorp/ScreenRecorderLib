@@ -12,14 +12,19 @@
 #include "LogMediaType.h"
 #include "CaptureBase.h"
 #include "TextureManager.h"
-#include "MF.util.h"
 
-class SourceReaderBase abstract : public CaptureBase, public IMFSourceReaderCallback  //this class inherits from IMFSourceReaderCallback
+#ifndef __CAPTURE_MEMBER_FUNCTION_CALLBACK_BASE_H
+#define CAPTURE_MEMBER_FUNCTION_CALLBACK_BASE_H
+#include "CaptureMemberFunctionCallbackBase.h"
+#endif //CAPTURE_MEMBER_FUNCTION_CALLBACK_BASE_H
+
+class DshowCapture : public CaptureBase
 {
 public:
 	virtual void Close();
-	SourceReaderBase();
-	virtual ~SourceReaderBase();
+	DshowCapture();
+	virtual ~DshowCapture();
+	virtual inline std::wstring Name() override { return L"CameraCapture"; };
 	virtual HRESULT StartCapture(_In_ RECORDING_SOURCE_BASE &recordingSource) override;
 	virtual HRESULT GetNativeSize(_In_ RECORDING_SOURCE_BASE &recordingSource, _Out_ SIZE *nativeMediaSize) override;
 	virtual HRESULT AcquireNextFrame(_In_ DWORD timeoutMillis, _Outptr_opt_ ID3D11Texture2D **ppFrame) override;
@@ -29,28 +34,18 @@ public:
 		return S_FALSE;
 	}
 
-	//  the class must implement the methods from IMFSourceReaderCallback 
-	STDMETHODIMP OnReadSample(HRESULT status, DWORD streamIndex, DWORD streamFlags, LONGLONG timeStamp, IMFSample *sample);
-	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *);
-	STDMETHODIMP OnFlush(DWORD);
 	// the class must implement the methods from IUnknown 
 	STDMETHODIMP QueryInterface(REFIID iid, void **ppv);
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP_(ULONG) Release();
 
+	typedef void(__stdcall *LPFN_CaptureCallback)(DWORD dwSize, BYTE *pbData);
+
+	virtual void __stdcall CaptureCallback(DWORD dwSize, BYTE *pbData);
+
 protected:
-	virtual HRESULT InitializeSourceReader(
-		_In_ std::wstring source,
-		_In_ std::optional<SIZE> outputSize,
-		_In_ std::optional<long> sourceFormatIndex,
-		_Out_ long *pStreamIndex,
-		_Outptr_ IMFSourceReader **ppSourceReader,
-		_Outptr_ IMFMediaType **ppInputMediaType,
-		_Outptr_opt_ IMFMediaType **ppOutputMediaType,
-		_Outptr_opt_result_maybenull_ IMFTransform **ppMediaTransform) abstract;
-	virtual HRESULT CreateOutputMediaType(_In_ SIZE frameSize, _Outptr_ IMFMediaType **pType, _Out_ LONG *stride);
-	virtual HRESULT CreateIMFTransform(_In_ DWORD streamIndex, _In_ IMFMediaType *pInputMediaType, _Outptr_ IMFTransform **pColorConverter, _Outptr_ IMFMediaType **ppOutputMediaType);
-	virtual HRESULT SourceReaderBase::ResizeFrameBuffer(UINT bufferSize);
+	virtual HRESULT DshowCapture::ResizeFrameBuffer(UINT bufferSize);
+	
 	CRITICAL_SECTION m_CriticalSection;
 	inline IMFDXGIDeviceManager *GetDeviceManager() { return m_DeviceManager; }
 private:
@@ -59,14 +54,13 @@ private:
 	HANDLE m_StopCaptureEvent;
 	LARGE_INTEGER m_LastSampleReceivedTimeStamp;
 	LARGE_INTEGER m_LastGrabTimeStamp;
-	IMFMediaBuffer *m_Sample;
+	IMFMediaBuffer *m_Sample_d;
 	ID3D11Device *m_Device;
 	ID3D11DeviceContext *m_DeviceContext;
 	HighresTimer *m_FramerateTimer;
-	IMFMediaType *m_OutputMediaType;
-	IMFMediaType *m_InputMediaType;
-	IMFSourceReader *m_SourceReader;
-	IMFTransform *m_MediaTransform;
+	//IMFMediaType *m_OutputMediaType;
+	//IMFMediaType *m_InputMediaType;
+	//IMFTransform *m_MediaTransform;
 	std::unique_ptr<TextureManager> m_TextureManager;
 	CComPtr<IMFDXGIDeviceManager> m_DeviceManager;
 	RECORDING_SOURCE_BASE *m_RecordingSource;
@@ -76,4 +70,12 @@ private:
 	LONG m_Stride;
 	SIZE m_FrameSize;
 	double m_FrameRate;
+	CaptureMemberFunctionCallback *cmfbr;
+	int d_Width;
+	int d_Height;
+	int d_Stride;
+	IUnknown *d_CameraPtr;
+	int pipelineIndex;
+	std::wstring friendlyName;
 };
+

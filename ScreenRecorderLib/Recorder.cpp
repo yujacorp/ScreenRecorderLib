@@ -3,7 +3,7 @@
 #include <msclr\marshal.h>
 #include <msclr\marshal_cppstd.h>
 #include "ManagedIStream.h"
-using namespace ScreenRecorderLibNew;
+using namespace ScreenRecorderLib;
 using namespace nlohmann;
 
 Recorder::Recorder(RecorderOptions^ options)
@@ -156,6 +156,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 				mouseOptions->SetMouseClickDetectionDuration(options->MouseOptions->MouseClickDetectionDuration.Value);
 			}
 			mouseOptions->SetMouseClickDetectionMode((UINT32)options->MouseOptions->MouseClickDetectionMode);
+			mouseOptions->SetIsDuplicateMouseClicks(options->MouseOptions->DuplicateMouseClickDetection);
 			m_Rec->SetMouseOptions(mouseOptions);
 		}
 		if (options->OverlayOptions) {
@@ -171,7 +172,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 	}
 }
 
-DynamicOptionsBuilder^ ScreenRecorderLibNew::Recorder::GetDynamicOptionsBuilder()
+DynamicOptionsBuilder^ ScreenRecorderLib::Recorder::GetDynamicOptionsBuilder()
 {
 	return gcnew DynamicOptionsBuilder(this);
 }
@@ -543,9 +544,7 @@ List<VideoCaptureFormat^>^ ScreenRecorderLib::Recorder::GetSupportedVideoCapture
 
 			std::vector<IMFMediaType*> captureFormats;
 			EnumerateCaptureFormats(pSource, &captureFormats);
-			auto list = CreateVideoCaptureFormatList(captureFormats);
-			pDevice->ShutdownObject();
-			return list;
+			return CreateVideoCaptureFormatList(captureFormats);
 		}
 	}
 	return gcnew List<VideoCaptureFormat^>();
@@ -610,6 +609,7 @@ void Recorder::SetupCallbacks() {
 	CreateSnapshotCallback();
 	CreateFrameNumberCallback();
 	CreateAudioVolumeCallback();
+	CreateRawFrameUpdateCallback();
 }
 
 void Recorder::ClearCallbacks() {
@@ -622,9 +622,11 @@ void Recorder::ClearCallbacks() {
 	if (_snapshotDelegateGcHandler.IsAllocated)
 		_snapshotDelegateGcHandler.Free();
 	if (_frameNumberDelegateGcHandler.IsAllocated)
-		_frameNumberDelegateGcHandler.Free();\
+		_frameNumberDelegateGcHandler.Free();
 	if (_audioVolumeDelegateGcHandler.IsAllocated)
 		_audioVolumeDelegateGcHandler.Free();
+	if (_rawFrameUpdateDelegateGcHandler.IsAllocated)
+		_rawFrameUpdateDelegateGcHandler.Free();
 }
 
 HRESULT Recorder::CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedSource, _Out_ RECORDING_SOURCE* pNativeSource)
@@ -648,8 +650,12 @@ HRESULT Recorder::CreateNativeRecordingSource(_In_ RecordingSourceBase^ managedS
 		nativeSource.SourceRect = managedSource->SourceRect->ToRECT();
 	}
 	nativeSource.IsVideoCaptureEnabled = managedSource->IsVideoCaptureEnabled;
+	nativeSource.UseDirectShowForCameraCapture = managedSource->IsDshowCaptureEnabled;
 	nativeSource.Stretch = static_cast<TextureStretchMode>(managedSource->Stretch);
 	nativeSource.Anchor = static_cast<ContentAnchor>(managedSource->AnchorPoint);
+	nativeSource.HorizontalFlip = managedSource->HorizontalFlip;
+	nativeSource.VerticalFlip = managedSource->VerticalFlip;
+
 	if (isinst<DisplayRecordingSource^>(managedSource)) {
 		DisplayRecordingSource^ displaySource = (DisplayRecordingSource^)managedSource;
 		if (!String::IsNullOrEmpty(displaySource->DeviceName)) {
@@ -928,6 +934,13 @@ void Recorder::CreateAudioVolumeCallback() {
 	CallbackAudioVolumeChangedFunction cb = static_cast<CallbackAudioVolumeChangedFunction>(ip.ToPointer());
 	m_Rec->AudioRecordingVolumeChangedCallback = cb;
 }
+void Recorder::CreateRawFrameUpdateCallback() {
+	RawFrameUpdateCallbackDelegate^ fp = gcnew RawFrameUpdateCallbackDelegate(this, &Recorder::RawFrameUpdateChanged);
+	_rawFrameUpdateDelegateGcHandler = GCHandle::Alloc(fp);
+	IntPtr ip = Marshal::GetFunctionPointerForDelegate(fp);
+	CallbackRawFrameUpdateFunction cb = static_cast<CallbackRawFrameUpdateFunction>(ip.ToPointer());
+	m_Rec->RawFrameUpdateCallback = cb;
+}
 void Recorder::CreateSnapshotCallback() {
 	InternalSnapshotCallbackDelegate^ fp = gcnew InternalSnapshotCallbackDelegate(this, &Recorder::EventSnapshotCreated);
 	_snapshotDelegateGcHandler = GCHandle::Alloc(fp);
@@ -960,7 +973,7 @@ void Recorder::EventComplete(std::wstring path, fifo_map<std::wstring, int> dela
 }
 void Recorder::EventFailed(std::wstring error, std::wstring path)
 {
-	ClearCallbacks();
+	//ClearCallbacks();
 	if (m_ManagedStream) {
 		delete m_ManagedStream;
 		m_ManagedStream = nullptr;
@@ -974,7 +987,7 @@ void Recorder::EventStatusChanged(int status)
 	OnStatusChanged(this, gcnew RecordingStatusEventArgs(recorderStatus));
 }
 
-void ScreenRecorderLibNew::Recorder::EventSnapshotCreated(std::wstring str)
+void ScreenRecorderLib::Recorder::EventSnapshotCreated(std::wstring str)
 {
 	OnSnapshotSaved(this, gcnew SnapshotSavedEventArgs(gcnew String(str.c_str())));
 }
@@ -988,6 +1001,11 @@ void Recorder::FrameNumberChanged(int newFrameNumber, INT64 timestamp)
 void Recorder::AudioVolumeChanged(int volume)
 {
 	OnAudioVolumeChanged(this, gcnew AudioRecordingVolumeEventArgs(volume));
+}
+
+void Recorder::RawFrameUpdateChanged(BYTE data[], long width, long height)
+{
+	OnRawFrameUpdate(this, gcnew RawFrameUpdateEventArgs(data, width, height));
 }
 
 bool Recorder::CheckMultiMonitorMultiGraphicsCompatability()

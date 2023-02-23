@@ -2,7 +2,7 @@
 using namespace System;
 using namespace System::ComponentModel;
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 
 	/// <summary>
 	/// Describes how content is resized to fill its allocated space.

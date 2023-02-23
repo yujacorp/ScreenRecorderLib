@@ -3,7 +3,7 @@
 using namespace System;
 using namespace System::Collections::Generic;
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 	public enum class RecorderStatus {
 		Idle,
 		Recording,
@@ -35,6 +35,20 @@ namespace ScreenRecorderLibNew {
 			Volume = volume;
 		}
 	};
+
+	public ref class RawFrameUpdateEventArgs :System::EventArgs {
+	public:
+		property long Width;
+		property long Height;
+		property BYTE* Data;
+
+		RawFrameUpdateEventArgs(BYTE data[], long width, long height) {
+			Width = width;
+			Height = height;
+			Data = data;
+		}
+	};
+
 	public ref class RecordingCompleteEventArgs :System::EventArgs {
 	public:
 		property String^ FilePath;

@@ -34,6 +34,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() :
 	m_TextureManager(nullptr),
 	m_HaveDeliveredFirstFrame(false),
 	m_IsInitialized(false),
+	m_IsCursorCaptureEnabled(false),
 	m_MouseManager(nullptr),
 	m_QPCFrequency{ 0 },
 	m_LastSampleReceivedTimeStamp{ 0 },
@@ -48,6 +49,11 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() :
 	RtlZeroMemory(&m_CurrentData, sizeof(m_CurrentData));
 	m_NewFrameEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	QueryPerformanceFrequency(&m_QPCFrequency);
+}
+
+WindowsGraphicsCapture::WindowsGraphicsCapture(_In_ bool isCursorCaptureEnabled) :WindowsGraphicsCapture()
+{
+	m_IsCursorCaptureEnabled = m_RecordingSource->IsCursorCaptureEnabled.value_or(isCursorCaptureEnabled);
 }
 
 WindowsGraphicsCapture::~WindowsGraphicsCapture()
@@ -235,7 +241,7 @@ HRESULT WindowsGraphicsCapture::StartCapture(_In_ RECORDING_SOURCE_BASE &recordi
 
 			WINRT_ASSERT(m_session != nullptr);
 			if (IsGraphicsCaptureCursorCapturePropertyAvailable()) {
-				m_session.IsCursorCaptureEnabled(m_RecordingSource->IsCursorCaptureEnabled.value_or(true));
+				m_session.IsCursorCaptureEnabled(m_IsCursorCaptureEnabled);
 			}
 			m_session.StartCapture();
 			m_closed.store(false);
@@ -366,7 +372,8 @@ HRESULT WindowsGraphicsCapture::GetCaptureItem(_In_ RECORDING_SOURCE_BASE &recor
 	}
 	else {
 		CComPtr<IDXGIOutput> output = nullptr;
-		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output);
+		int index = 0;
+		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output, &index);
 		if (FAILED(hr)) {
 			hr = GetMainOutput(&output);
 			if (FAILED(hr)) {
@@ -492,9 +499,6 @@ void WindowsGraphicsCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool co
 {
 	QueryPerformanceCounter(&m_LastSampleReceivedTimeStamp);
 	SetEvent(m_NewFrameEvent);
-	if (m_session.IsCursorCaptureEnabled() != m_RecordingSource->IsCursorCaptureEnabled.value_or(true)) {
-		m_session.IsCursorCaptureEnabled(m_RecordingSource->IsCursorCaptureEnabled.value_or(true));
-	}
 }
 
 HRESULT WindowsGraphicsCapture::GetNextFrame(_In_ DWORD timeoutMillis, _Inout_ GRAPHICS_FRAME_DATA *pData)

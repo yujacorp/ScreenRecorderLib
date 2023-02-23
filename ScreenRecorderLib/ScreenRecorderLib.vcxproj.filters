@@ -73,4 +73,7 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="..\ScreenRecorderLibNative\VideoCamLib.dll" />
+  </ItemGroup>
 </Project>
