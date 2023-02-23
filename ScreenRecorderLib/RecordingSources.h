@@ -1,10 +1,12 @@
 #pragma once
-#include "../ScreenRecorderLibNativeNew/Native.h"
+#include "../ScreenRecorderLibNative/Native.h"
+#include "VideoCaptureFormat.h"
 
 using namespace System;
 using namespace System::ComponentModel;
+using namespace System::Collections::Generic;
 
-namespace ScreenRecorderLibNew {
+namespace ScreenRecorderLib {
 
 	public enum class RecorderApi {
 		///<summary>Desktop Duplication is supported on all Windows 8 and 10 versions. This API supports recording of screens.</summary>
@@ -27,7 +29,7 @@ namespace ScreenRecorderLibNew {
 			ID = Guid::NewGuid().ToString();
 			Stretch = StretchMode::Uniform;
 			AnchorPoint = Anchor::Center;
-			IsVideoCaptureEnabled = false;
+			IsVideoCaptureEnabled = true;
 		}
 		RecordingSourceBase(RecordingSourceBase^ base) :RecordingSourceBase() {
 			ID = base->ID;
@@ -128,6 +130,7 @@ namespace ScreenRecorderLibNew {
 	public ref class WindowRecordingSource : public RecordingSourceBase {
 	private:
 		bool _isCursorCaptureEnabled = true;
+		bool _isBorderRequired = true;
 	public:
 		/// <summary>
 		/// The handle to the window to record.
@@ -144,10 +147,11 @@ namespace ScreenRecorderLibNew {
 		WindowRecordingSource(WindowRecordingSource^ source) :RecordingSourceBase(source) {
 			Handle = source->Handle;
 			IsCursorCaptureEnabled = source->IsCursorCaptureEnabled;
+			IsBorderRequired = source->IsBorderRequired;
 		}
 		property RecorderApi RecorderApi {
-			ScreenRecorderLibNew::RecorderApi get() {
-				return ScreenRecorderLibNew::RecorderApi::WindowsGraphicsCapture;
+			ScreenRecorderLib::RecorderApi get() {
+				return ScreenRecorderLib::RecorderApi::WindowsGraphicsCapture;
 			}
 		}
 		/// <summary>
@@ -162,12 +166,26 @@ namespace ScreenRecorderLibNew {
 				OnPropertyChanged("IsCursorCaptureEnabled");
 			}
 		}
+		/// <summary>
+		///Gets or sets a value specifying whether a Windows Graphics Capture operation requires a colored border around the window or display to indicate that a capture is in progress.
+		///Requires Windows 11.
+		/// </summary>
+		property bool IsBorderRequired {
+			bool get() {
+				return _isBorderRequired;
+			}
+			void set(bool value) {
+				_isBorderRequired = value;
+				OnPropertyChanged("IsBorderRequired");
+			}
+		}
 	};
 
 	public ref class DisplayRecordingSource : public RecordingSourceBase {
 	private:
-		RecorderApi _recorderApi = ScreenRecorderLibNew::RecorderApi::DesktopDuplication;
+		RecorderApi _recorderApi = ScreenRecorderLib::RecorderApi::DesktopDuplication;
 		bool _isCursorCaptureEnabled = true;
+		bool _isBorderRequired = true;
 	public:
 		static property DisplayRecordingSource^ MainMonitor {
 			DisplayRecordingSource^ get() {
@@ -195,14 +213,15 @@ namespace ScreenRecorderLibNew {
 		DisplayRecordingSource(DisplayRecordingSource^ source) :RecordingSourceBase(source) {
 			DeviceName = source->DeviceName;
 			IsCursorCaptureEnabled = source->IsCursorCaptureEnabled;
+			IsBorderRequired = source->IsBorderRequired;
 			RecorderApi = source->RecorderApi;
 		}
 
 		property RecorderApi RecorderApi {
-			ScreenRecorderLibNew::RecorderApi get() {
+			ScreenRecorderLib::RecorderApi get() {
 				return _recorderApi;
 			}
-			void set(ScreenRecorderLibNew::RecorderApi api) {
+			void set(ScreenRecorderLib::RecorderApi api) {
 				_recorderApi = api;
 				OnPropertyChanged("RecorderApi");
 			}
@@ -219,6 +238,19 @@ namespace ScreenRecorderLibNew {
 				OnPropertyChanged("IsCursorCaptureEnabled");
 			}
 		}
+		/// <summary>
+		///Gets or sets a value specifying whether a Windows Graphics Capture operation requires a colored border around the window or display to indicate that a capture is in progress.
+		///Requires Windows 11.
+		/// </summary>
+		property bool IsBorderRequired {
+			bool get() {
+				return _isBorderRequired;
+			}
+			void set(bool value) {
+				_isBorderRequired = value;
+				OnPropertyChanged("IsBorderRequired");
+			}
+		}
 	};
 
 	public ref class VideoCaptureRecordingSource : public RecordingSourceBase {
@@ -228,6 +260,8 @@ namespace ScreenRecorderLibNew {
 		/// </summary>
 		property String^ DeviceName;
 
+		property VideoCaptureFormat^ CaptureFormat;
+
 		VideoCaptureRecordingSource() :RecordingSourceBase()
 		{
 
@@ -235,8 +269,13 @@ namespace ScreenRecorderLibNew {
 		VideoCaptureRecordingSource(String^ deviceName) :VideoCaptureRecordingSource() {
 			DeviceName = deviceName;
 		}
+		VideoCaptureRecordingSource(String^ deviceName, VideoCaptureFormat^ captureFormat) :VideoCaptureRecordingSource() {
+			DeviceName = deviceName;
+			CaptureFormat = captureFormat;
+		}
 		VideoCaptureRecordingSource(VideoCaptureRecordingSource^ source) :RecordingSourceBase(source) {
 			DeviceName = source->DeviceName;
+			CaptureFormat = source->CaptureFormat;
 		}
 	};
 

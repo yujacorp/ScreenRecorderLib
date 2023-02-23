@@ -11,7 +11,7 @@ public:
 protected:
 	virtual HRESULT InitializeSourceReader(
 		_In_ std::wstring source,
-		_In_ std::optional<SIZE> outputSize,
+		_In_ std::optional<long> sourceFormatIndex,
 		_Out_ long *pStreamIndex,
 		_Outptr_ IMFSourceReader **ppSourceReader,
 		_Outptr_ IMFMediaType **ppInputMediaType,
@@ -19,14 +19,15 @@ protected:
 		_Outptr_opt_result_maybenull_ IMFTransform **ppMediaTransform) override;
 private:
 	HRESULT InitializeMediaSource(
-		_In_ IMFActivate *pDevice,
-		_In_ std::optional<SIZE> outputSize,
+		_In_ CComPtr<IMFMediaSource> pDevice,
+		_In_ std::optional<long> sourceFormatIndex,
 		_Out_ long *pStreamIndex,
 		_Outptr_ IMFSourceReader **ppSourceReader,
 		_Outptr_ IMFMediaType **ppInputMediaType,
 		_Outptr_opt_ IMFMediaType **ppOutputMediaType,
 		_Outptr_opt_result_maybenull_ IMFTransform **ppMediaTransform
 	);
+	HRESULT SetDeviceFormat(_In_ CComPtr<IMFMediaSource> pDevice, _In_ DWORD dwFormatIndex);
 	std::wstring m_DeviceName;
 	std::wstring m_DeviceSymbolicLink;
 };

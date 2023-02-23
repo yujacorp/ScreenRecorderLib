@@ -39,7 +39,7 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 		return E_FAIL;
 	}
 	// activate an IAudioClient
-	IAudioClient *pAudioClient;
+	IAudioClient *pAudioClient = nullptr;
 	hr = pMMDevice->Activate(
 		__uuidof(IAudioClient),
 		CLSCTX_ALL, NULL,
@@ -73,34 +73,34 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 		// can do this in-place since we're not changing the size of the format
 		// also, the engine will auto-convert from float to int for us
 		switch (pwfx->wFormatTag) {
-		case WAVE_FORMAT_IEEE_FLOAT:
-			pwfx->wFormatTag = WAVE_FORMAT_PCM;
-			pwfx->wBitsPerSample = 16;
-			pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
-			pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
-			break;
-
-		case WAVE_FORMAT_EXTENSIBLE:
-		{
-			// naked scope for case-local variable
-			PWAVEFORMATEXTENSIBLE pEx = reinterpret_cast<PWAVEFORMATEXTENSIBLE>(pwfx);
-			if (IsEqualGUID(KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, pEx->SubFormat)) {
-				pEx->SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
-				pEx->Samples.wValidBitsPerSample = 16;
+			case WAVE_FORMAT_IEEE_FLOAT:
+				pwfx->wFormatTag = WAVE_FORMAT_PCM;
 				pwfx->wBitsPerSample = 16;
 				pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
 				pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
-			}
-			else {
-				LOG_ERROR(L"%s", L"Don't know how to coerce mix format to int-16");
-				return E_UNEXPECTED;
-			}
-		}
-		break;
+				break;
 
-		default:
-			LOG_ERROR(L"Don't know how to coerce WAVEFORMATEX with wFormatTag = 0x%08x to int-16", pwfx->wFormatTag);
-			return E_UNEXPECTED;
+			case WAVE_FORMAT_EXTENSIBLE:
+			{
+				// naked scope for case-local variable
+				PWAVEFORMATEXTENSIBLE pEx = reinterpret_cast<PWAVEFORMATEXTENSIBLE>(pwfx);
+				if (IsEqualGUID(KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, pEx->SubFormat)) {
+					pEx->SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+					pEx->Samples.wValidBitsPerSample = 16;
+					pwfx->wBitsPerSample = 16;
+					pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
+					pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
+				}
+				else {
+					LOG_ERROR(L"%s", L"Don't know how to coerce mix format to int-16");
+					return E_UNEXPECTED;
+				}
+			}
+			break;
+
+			default:
+				LOG_ERROR(L"Don't know how to coerce WAVEFORMATEX with wFormatTag = 0x%08x to int-16", pwfx->wFormatTag);
+				return E_UNEXPECTED;
 		}
 	}
 	UINT32 outputSampleRate;
@@ -158,7 +158,14 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 
 	UINT32 nBlockAlign = pwfx->nBlockAlign;
 	UINT32 nFrames = 0;
-	long audioClientBuffer = 200 * 10000; //200ms in 100-nanosecond units.
+	long audioClientBufferMillis = 200;
+	long audioClientBuffer100Nanos = audioClientBufferMillis * 10000;
+
+	int bufferFrameCount = int(ceil(pwfx->nSamplesPerSec * audioClientBufferMillis / 1000));
+	int bufferByteCount = bufferFrameCount * nBlockAlign;
+	BYTE *bufferData = new BYTE[bufferByteCount]{ 0 };
+	DeleteArrayOnExit deleteBufferData(bufferData);
+
 	// call IAudioClient::Initialize
 	// note that AUDCLNT_STREAMFLAGS_LOOPBACK and AUDCLNT_STREAMFLAGS_EVENTCALLBACK
 	// do not work together...
@@ -166,15 +173,15 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 	// so we're going to do a timer-driven loop
 	switch (flow)
 	{
-	case eRender:
-		hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, audioClientBuffer, 0, pwfx, 0);
-		break;
-	case eCapture:
-		hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, audioClientBuffer, 0, pwfx, 0);
-		break;
-	default:
-		hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, audioClientBuffer, 0, pwfx, 0);
-		break;
+		case eRender:
+			hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, audioClientBuffer100Nanos, 0, pwfx, 0);
+			break;
+		case eCapture:
+			hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, audioClientBuffer100Nanos, 0, pwfx, 0);
+			break;
+		default:
+			hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, audioClientBuffer100Nanos, 0, pwfx, 0);
+			break;
 	}
 	if (FAILED(hr)) {
 		LOG_ERROR(L"IAudioClient::Initialize failed on %ls: hr = 0x%08x", m_Tag.c_str(), hr);
@@ -182,7 +189,7 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 	}
 
 	// activate an IAudioCaptureClient
-	IAudioCaptureClient *pAudioCaptureClient;
+	IAudioCaptureClient *pAudioCaptureClient = nullptr;
 	hr = pAudioClient->GetService(
 		__uuidof(IAudioCaptureClient),
 		(void **)&pAudioCaptureClient
@@ -204,7 +211,7 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 	AvRevertMmThreadCharacteristicsOnExit unregisterMmcss(hTask);
 
 	// set the waitable timer
-	LARGE_INTEGER liFirstFire;
+	LARGE_INTEGER liFirstFire{};
 	liFirstFire.QuadPart = -hnsDefaultDevicePeriod / 2; // negative means relative time
 	LONG lTimeBetweenFires = (LONG)hnsDefaultDevicePeriod / 2 / (10 * 1000); // convert to milliseconds
 	BOOL bOK = SetWaitableTimer(
@@ -289,14 +296,21 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 				continue; // exits loop
 			}
 
-			LONG lBytesToWrite = nNumFramesToRead * nBlockAlign;
-#pragma prefast(suppress: __WARNING_INCORRECT_ANNOTATION, "IAudioCaptureClient::GetBuffer SAL annotation implies a 1-byte buffer")
+			UINT32 size = nNumFramesToRead * nBlockAlign;
+			memcpy_s(bufferData, bufferByteCount, pData, size);
 
-			m_TaskWrapperImpl->m_Mutex.lock();
-			int size = lBytesToWrite;
+			hr = pAudioCaptureClient->ReleaseBuffer(nNumFramesToRead);
+			if (FAILED(hr)) {
+				LOG_ERROR(L"IAudioCaptureClient::ReleaseBuffer failed on pass %u after %u frames on %ls: hr = 0x%08x", nPasses, nFrames, m_Tag.c_str(), hr);
+				bDone = true;
+				continue; // exits loop
+			}
+
+#pragma prefast(suppress: __WARNING_INCORRECT_ANNOTATION, "IAudioCaptureClient::GetBuffer SAL annotation implies a 1-byte buffer")
+			const std::lock_guard<std::mutex> lock(m_TaskWrapperImpl->m_Mutex);
 			if (m_RecordedBytes.size() == 0)
 				m_RecordedBytes.reserve(size);
-			m_RecordedBytes.insert(m_RecordedBytes.end(), &pData[0], &pData[size]);
+			m_RecordedBytes.insert(m_RecordedBytes.end(), &bufferData[0], &bufferData[size]);
 			//This should reduce glitching if there is discontinuity in the audio stream.
 			if (isDiscontinuity) {
 				UINT64 frameDiff = nDevicePosition - nLastDevicePosition;
@@ -305,16 +319,7 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 					LOG_DEBUG(L"Discontinuity detected, padded audio bytes with %d bytes of silence on %ls", frameDiff, m_Tag.c_str());
 				}
 			}
-			m_TaskWrapperImpl->m_Mutex.unlock();
-
 			nFrames += nNumFramesToRead;
-
-			hr = pAudioCaptureClient->ReleaseBuffer(nNumFramesToRead);
-			if (FAILED(hr)) {
-				LOG_ERROR(L"IAudioCaptureClient::ReleaseBuffer failed on pass %u after %u frames on %ls: hr = 0x%08x", nPasses, nFrames, m_Tag.c_str(), hr);
-				bDone = true;
-				continue; // exits loop
-			}
 			bFirstPacket = false;
 			nLastDevicePosition = nDevicePosition;
 		}
@@ -326,21 +331,23 @@ HRESULT LoopbackCapture::StartLoopbackCapture(
 		}
 
 		dwWaitResult = WaitForMultipleObjects(
-			ARRAYSIZE(waitArray), waitArray,
-			FALSE, INFINITE
-		);
+ARRAYSIZE(waitArray), waitArray,
+FALSE, 5000
+);
 
 		if (WAIT_OBJECT_0 == dwWaitResult) {
 			LOG_DEBUG(L"Received stop event after %u passes and %u frames on %ls", nPasses, nFrames, m_Tag.c_str());
 			bDone = true;
-			continue; // exits loop
 		}
-
-		if (WAIT_OBJECT_0 + 1 != dwWaitResult) {
+		else if (WAIT_TIMEOUT == dwWaitResult) {
+			LOG_ERROR(L"WaitForMultipleObjects timeout on pass %u after %u frames on %ls", dwWaitResult, nPasses, nFrames, m_Tag.c_str());
+			hr = E_UNEXPECTED;
+			bDone = true;
+		}
+		else if (WAIT_OBJECT_0 + 1 != dwWaitResult) {
 			LOG_ERROR(L"Unexpected WaitForMultipleObjects return value %u on pass %u after %u frames on %ls", dwWaitResult, nPasses, nFrames, m_Tag.c_str());
 			hr = E_UNEXPECTED;
 			bDone = true;
-			continue; // exits loop
 		}
 	} // capture loop
 	m_IsCapturing = false;
@@ -351,12 +358,19 @@ std::vector<BYTE> LoopbackCapture::PeakRecordedBytes()
 	return m_RecordedBytes;
 }
 
-std::vector<BYTE> LoopbackCapture::GetRecordedBytes()
+std::vector<BYTE> LoopbackCapture::GetRecordedBytes(UINT64 duration100Nanos)
 {
-	auto byteCount = m_RecordedBytes.size();
-	m_TaskWrapperImpl->m_Mutex.lock();
+	int frameCount = int(ceil(m_InputFormat.sampleRate * HundredNanosToSeconds(duration100Nanos)));
 
-	std::vector<BYTE> newvector(m_RecordedBytes.begin(), m_RecordedBytes.begin() + byteCount);
+	std::vector<BYTE> newvector;
+	size_t byteCount;
+	{
+		const std::lock_guard<std::mutex> lock(m_TaskWrapperImpl->m_Mutex);
+		byteCount = min((frameCount * m_InputFormat.FrameBytes()), m_RecordedBytes.size());
+		newvector = std::vector<BYTE>(m_RecordedBytes.begin(), m_RecordedBytes.begin() + byteCount);
+		m_RecordedBytes.erase(m_RecordedBytes.begin(), m_RecordedBytes.begin() + byteCount);
+		LOG_TRACE(L"Got %d bytes from LoopbackCapture %ls. %d bytes remaining", newvector.size(), m_Tag.c_str(), m_RecordedBytes.size());
+	}
 	// convert audio
 	if (requiresResampling() && byteCount > 0) {
 		WWMFSampleData sampleData;
@@ -375,9 +389,7 @@ std::vector<BYTE> LoopbackCapture::GetRecordedBytes()
 		newvector.insert(newvector.begin(), m_OverflowBytes.begin(), m_OverflowBytes.end());
 		m_OverflowBytes.clear();
 	}
-	m_RecordedBytes.erase(m_RecordedBytes.begin(), m_RecordedBytes.begin() + byteCount);
-	LOG_TRACE(L"Got %d bytes from LoopbackCapture %ls. %d bytes remaining", newvector.size(), m_Tag.c_str(), m_RecordedBytes.size());
-	m_TaskWrapperImpl->m_Mutex.unlock();
+
 	return newvector;
 }
 
@@ -405,18 +417,29 @@ HRESULT LoopbackCapture::StartCapture(UINT32 sampleRate, UINT32 audioChannels, s
 		auto file = prefs.m_hFile;
 		m_TaskWrapperImpl->m_CaptureTask = concurrency::create_task([this, flow, sampleRate, audioChannels, device, file]() {
 			if (FAILED(StartLoopbackCapture(device,
-				file,
-				true,
-				m_CaptureStartedEvent,
-				m_CaptureStopEvent,
-				flow,
-				sampleRate,
-				audioChannels))) {
+			file,
+			true,
+			m_CaptureStartedEvent,
+			m_CaptureStopEvent,
+			flow,
+			sampleRate,
+			audioChannels))) {
 				SetEvent(m_CaptureStopEvent);
 			}
 			});
 		HANDLE events[2] = { m_CaptureStartedEvent ,m_CaptureStopEvent };
-		hr = WaitForMultipleObjects(ARRAYSIZE(events), events, false, INFINITE);
+		DWORD dwWaitResult = WaitForMultipleObjects(ARRAYSIZE(events), events, false, 5000);
+		if (dwWaitResult == WAIT_OBJECT_0) {
+			hr = S_OK;
+		}
+		else if (dwWaitResult == WAIT_OBJECT_0 + 1) {
+			LOG_ERROR(L"Received stop event when starting capture");
+			hr = E_FAIL;
+		}
+		else if (dwWaitResult == WAIT_TIMEOUT) {
+			LOG_ERROR(L"Timed out when starting capture");
+			hr = E_FAIL;
+		}
 	}
 	return hr;
 }
@@ -446,7 +469,6 @@ bool LoopbackCapture::IsCapturing() {
 
 void LoopbackCapture::ClearRecordedBytes()
 {
-	m_TaskWrapperImpl->m_Mutex.lock();
+	const std::lock_guard<std::mutex> lock(m_TaskWrapperImpl->m_Mutex);
 	m_RecordedBytes.clear();
-	m_TaskWrapperImpl->m_Mutex.unlock();
 }

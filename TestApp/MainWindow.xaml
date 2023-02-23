@@ -264,12 +264,14 @@
 
                                     <TextBlock FontFamily="Arial">
                                         <TextBlock.Text>
-                                            <MultiBinding StringFormat="{}[Camera]  {0} [{1},{2}] ({3} x {4})]">
+                                            <MultiBinding StringFormat="{}[Camera]  {0} [{1},{2}] {3:0.##}fps ({4} x {5})]">
                                                 <Binding Path="FriendlyName" />
                                                 <Binding  Path="Position.Left"
                                                           UpdateSourceTrigger="PropertyChanged" />
                                                 <Binding  Path="Position.Top"
                                                           UpdateSourceTrigger="PropertyChanged" />
+                                                <Binding  Path="CaptureFormat.Framerate"
+                                                          UpdateSourceTrigger="PropertyChanged"/>
                                                 <Binding  Path="OutputSize.Width"
                                                           UpdateSourceTrigger="PropertyChanged" />
                                                 <Binding  Path="OutputSize.Height"
@@ -456,7 +458,12 @@
                                 <StackPanel Grid.Column="1"
                                             Orientation="Horizontal">
                                     <CheckBox VerticalAlignment="Center"
+                                              x:Name="CheckBoxIsBorderRequiredForSource"
+                                              Content="Border"
+                                              IsChecked="{Binding IsBorderRequired,Mode=TwoWay}" />
+                                    <CheckBox VerticalAlignment="Center"
                                               Padding="0"
+                                              Margin="5,0,0,0"
                                               x:Name="CheckBoxIsVideoCaptureEnabledForSource"
                                               IsChecked="{Binding IsVideoCaptureEnabled,Mode=TwoWay}" />
                                     <Label Content="Video"

@@ -138,21 +138,27 @@ inline std::wstring GetLastErrorStdWstr() {
 	return s2ws(GetLastErrorStdStr());
 }
 
-inline INT64 MillisToHundredNanos(INT64 millis) {
-	return millis * 10 * 1000;
+inline INT64 MillisToHundredNanos(double millis) {
+	return (INT64)round(millis * 10 * 1000);
 }
 
-inline INT64 HundredNanosToMillis(INT64 hundredNanos) {
-	return (INT64)round((double)hundredNanos / 10 / 1000);
+inline INT64 SecondsToHundredNanos(double seconds) {
+	return (INT64)round(seconds * 10 * 1000 * 1000);
 }
 
 inline double HundredNanosToMillisDouble(INT64 hundredNanos) {
 	return (double)hundredNanos / 10 / 1000;
 }
+
+inline INT64 HundredNanosToMillis(INT64 hundredNanos) {
+	return hundredNanos / 10 / 1000;
+}
+inline double HundredNanosToSeconds(INT64 hundredNanos) {
+	return (double)hundredNanos / 10 / 1000 / 1000;
+}
 /// <summary>
 /// Forces the dimensions of rect to be even by adding 1*modifier pixel if odd.
 /// </summary>
-/// <param name="rect"></param>
 inline RECT MakeRectEven(_In_ RECT &rect, _In_ int modifier = -1)
 {
 	if ((rect.right - rect.left) % 2 != 0)
@@ -164,7 +170,6 @@ inline RECT MakeRectEven(_In_ RECT &rect, _In_ int modifier = -1)
 /// <summary>
 /// Forces the dimensions of n to be even by adding 1*modifier pixel if odd.
 /// </summary>
-/// <param name="rect"></param>
 inline LONG MakeEven(_In_ LONG n, _In_ int modifier = -1) {
 	return n + (1 * modifier) * n % 2;
 }

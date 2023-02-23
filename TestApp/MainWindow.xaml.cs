@@ -6,7 +6,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-
+using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -235,9 +235,12 @@ namespace TestApp
             {
                 case nameof(SourceRect):
                     {
-                        _rec?.GetDynamicOptionsBuilder()
-                                .SetDynamicOutputOptions(new DynamicOutputOptions { SourceRect = SourceRect })
-                                .Apply();
+                        if (IsCustomOutputSourceRectEnabled)
+                        {
+                            _rec?.GetDynamicOptionsBuilder()
+                                    .SetDynamicOutputOptions(new DynamicOutputOptions { SourceRect = SourceRect })
+                                    .Apply();
+                        }
                         break;
                     }
             }
@@ -609,7 +612,9 @@ namespace TestApp
                     {
                         OutputSize = cam.IsCustomOutputSizeEnabled ? cam.OutputSize : null,
                         SourceRect = cam.IsCustomOutputSourceRectEnabled ? cam.SourceRect : null,
-                        Position = cam.IsCustomPositionEnabled ? cam.Position : null
+                        Position = cam.IsCustomPositionEnabled ? cam.Position : null,
+                        CaptureFormat = cam.CaptureFormat
+
                     };
                 }
                 else if (x is CheckableRecordableImage img)
@@ -667,6 +672,7 @@ namespace TestApp
                 RecordButton.Content = "Record";
                 RecordButton.IsEnabled = true;
                 StatusTextBlock.Text = "Error:";
+                _recordingStartTime = null;
                 ErrorTextBlock.Visibility = Visibility.Visible;
                 ErrorTextBlock.Text = e.Error;
                 IsRecording = false;
@@ -687,6 +693,7 @@ namespace TestApp
                 PauseButton.Visibility = Visibility.Collapsed;
                 RecordButton.Content = "Record";
                 RecordButton.IsEnabled = true;
+                _recordingStartTime = null;
                 this.StatusTextBlock.Text = "Completed";
                 IsRecording = false;
                 CleanupResources();
@@ -768,7 +775,7 @@ namespace TestApp
                 AverageFrameRate = CurrentFrameNumber / DateTimeOffset.FromUnixTimeMilliseconds(_recordedFrameTimes.Last()).Subtract(_recordingStartTime.Value).TotalSeconds;
                 _recordedFrameTimes.RemoveRange(0, Math.Max(0, _recordedFrameTimes.Count - 10));
                 double intervalMillis = (double)(_recordedFrameTimes.Last() - _recordedFrameTimes.First());
-                CurrentFrameRate = (_recordedFrameTimes.Count-1) / (double)intervalMillis * 1000;
+                CurrentFrameRate = (_recordedFrameTimes.Count - 1) / (double)intervalMillis * 1000;
             }
         }
         private void UpdateProgress()
@@ -950,13 +957,13 @@ namespace TestApp
         private void RefreshVideoCaptureItems()
         {
             VideoCaptureDevices.Clear();
-            var devices = Recorder.GetSystemVideoCaptureDevices().ToList();
-            foreach (var device in devices)
+
+            foreach (var device in Recorder.GetSystemVideoCaptureDevices())
             {
                 VideoCaptureDevices.Add(device);
             }
             (this.Resources["MediaDeviceToDeviceIdConverter"] as MediaDeviceToDeviceIdConverter).MediaDevices = VideoCaptureDevices.ToList();
-            ((VideoCaptureOverlay)Overlays.FirstOrDefault(x => x.Overlay is VideoCaptureOverlay).Overlay).DeviceName = VideoCaptureDevices.First().DeviceName;
+            ((VideoCaptureOverlay)Overlays.FirstOrDefault(x => x.Overlay is VideoCaptureOverlay).Overlay).DeviceName = VideoCaptureDevices.FirstOrDefault()?.DeviceName;
         }
 
         private void RefreshSourceComboBox()
@@ -974,7 +981,17 @@ namespace TestApp
 
             foreach (RecordableCamera cam in Recorder.GetSystemVideoCaptureDevices())
             {
-                RecordingSources.Add(new CheckableRecordableCamera(cam));
+                var availableFormats = Recorder.GetSupportedVideoCaptureFormatsForDevice(cam.DeviceName);
+                var formatsToDisplay = availableFormats
+                    .GroupBy(x => x.Framerate)
+                    .FirstOrDefault()
+                    .GroupBy(x => x.FrameSize)
+                    .SelectMany(x => new List<VideoCaptureFormat> { x.First() })
+                    .ToList();
+                foreach (var format in formatsToDisplay)
+                {
+                    RecordingSources.Add(new CheckableRecordableCamera(cam) { CaptureFormat = format });
+                }
             }
 
             RecordingSources.Add(new CheckableRecordableVideo(@"testmedia\cat.mp4"));

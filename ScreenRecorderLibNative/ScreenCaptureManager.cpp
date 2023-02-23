@@ -190,9 +190,9 @@ HRESULT ScreenCaptureManager::StopCapture()
 		LOG_ERROR("Could not terminate capture threads");
 		return E_FAIL;
 	}
-	WaitForThreadTermination();
+	HRESULT hr = WaitForThreadTermination();
 	m_IsCapturing = false;
-	return S_OK;
+	return hr;
 }
 
 HRESULT ScreenCaptureManager::AcquireNextFrame(_In_  DWORD timeoutMillis, _Inout_ CAPTURED_FRAME *pFrame)
@@ -336,17 +336,24 @@ void ScreenCaptureManager::Clean()
 }
 
 //
-// Waits infinitely for all spawned threads to terminate
+// Waits for all spawned threads to terminate
 //
-void ScreenCaptureManager::WaitForThreadTermination()
+HRESULT ScreenCaptureManager::WaitForThreadTermination()
 {
 	LOG_TRACE("Waiting for capture thread termination..");
 	if (m_OverlayThreadCount != 0) {
-		WaitForMultipleObjects(m_OverlayThreadCount, m_OverlayThreadHandles, TRUE, INFINITE);
+		if (WaitForMultipleObjects(m_OverlayThreadCount, m_OverlayThreadHandles, TRUE, 5000) == WAIT_TIMEOUT) {
+			LOG_ERROR(L"Timeout in overlay capture thread termination");
+			return E_FAIL;
+		}
 	}
 	if (m_CaptureThreadCount != 0) {
-		WaitForMultipleObjects(m_CaptureThreadCount, m_CaptureThreadHandles, TRUE, INFINITE);
+		if (WaitForMultipleObjects(m_CaptureThreadCount, m_CaptureThreadHandles, TRUE, 5000) == WAIT_TIMEOUT) {
+			LOG_ERROR(L"Timeout in capture thread termination");
+			return E_FAIL;
+		}
 	}
+	return S_OK;
 }
 
 _Ret_maybenull_ CAPTURE_THREAD_DATA *ScreenCaptureManager::GetCaptureDataForRect(RECT rect)
@@ -1026,10 +1033,12 @@ void ProcessCaptureHRESULT(_In_ HRESULT hr, _Inout_ CAPTURE_RESULT *pResult, _In
 				{
 					case DXGI_ERROR_DEVICE_REMOVED:
 					case DXGI_ERROR_DEVICE_RESET:
+					case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
 					case static_cast<HRESULT>(E_OUTOFMEMORY):
 					{
-						LOG_INFO(L"Graphics device temporarily unavailable: hr = 0x%08x, error = %s", hr, err.ErrorMessage());
+						LOG_INFO(L"Graphics device unavailable: hr = 0x%08x, error = %s", hr, err.ErrorMessage());
 						pResult->IsRecoverableError = true;
+						pResult->IsDeviceError = true;
 						break;
 					}
 					default: {

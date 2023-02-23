@@ -34,7 +34,6 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() :
 	m_TextureManager(nullptr),
 	m_HaveDeliveredFirstFrame(false),
 	m_IsInitialized(false),
-	m_IsCursorCaptureEnabled(false),
 	m_MouseManager(nullptr),
 	m_QPCFrequency{ 0 },
 	m_LastSampleReceivedTimeStamp{ 0 },
@@ -49,11 +48,6 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() :
 	RtlZeroMemory(&m_CurrentData, sizeof(m_CurrentData));
 	m_NewFrameEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	QueryPerformanceFrequency(&m_QPCFrequency);
-}
-
-WindowsGraphicsCapture::WindowsGraphicsCapture(_In_ bool isCursorCaptureEnabled) :WindowsGraphicsCapture()
-{
-	m_IsCursorCaptureEnabled = isCursorCaptureEnabled;
 }
 
 WindowsGraphicsCapture::~WindowsGraphicsCapture()
@@ -229,13 +223,19 @@ HRESULT WindowsGraphicsCapture::StartCapture(_In_ RECORDING_SOURCE_BASE &recordi
 			// the frame pool was created on. This also means that the creating thread
 			// must have a DispatcherQueue. If you use this method, it's best not to do
 			// it on the UI thread. 
-			m_framePool = winrt::Direct3D11CaptureFramePool::CreateFreeThreaded(direct3DDevice, winrt::DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, m_CaptureItem.Size());
+			m_framePool = winrt::Direct3D11CaptureFramePool::CreateFreeThreaded(direct3DDevice, winrt::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, m_CaptureItem.Size());
+
 			m_session = m_framePool.CreateCaptureSession(m_CaptureItem);
+
+			if (IsGraphicsCaptureIsBorderRequiredPropertyAvailable()) {
+				m_session.IsBorderRequired(recordingSource.IsBorderRequired.value_or(true));
+			}
+
 			m_framePool.FrameArrived({ this, &WindowsGraphicsCapture::OnFrameArrived });
 
 			WINRT_ASSERT(m_session != nullptr);
 			if (IsGraphicsCaptureCursorCapturePropertyAvailable()) {
-				m_session.IsCursorCaptureEnabled(m_IsCursorCaptureEnabled);
+				m_session.IsCursorCaptureEnabled(m_RecordingSource->IsCursorCaptureEnabled.value_or(true));
 			}
 			m_session.StartCapture();
 			m_closed.store(false);
@@ -366,8 +366,7 @@ HRESULT WindowsGraphicsCapture::GetCaptureItem(_In_ RECORDING_SOURCE_BASE &recor
 	}
 	else {
 		CComPtr<IDXGIOutput> output = nullptr;
-		int index = 0;
-		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output, &index);
+		hr = GetOutputForDeviceName(recordingSource.SourcePath, &output);
 		if (FAILED(hr)) {
 			hr = GetMainOutput(&output);
 			if (FAILED(hr)) {
@@ -413,6 +412,7 @@ HRESULT WindowsGraphicsCapture::RecreateFramePool(_Inout_ GRAPHICS_FRAME_DATA *p
 			newFramePoolSize.Height += 100;
 		}
 		m_framePool.Recreate(direct3DDevice, winrt::DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, newFramePoolSize);
+		LOG_TRACE(L"Recreated WGC Frame Pool size [%d,%d]", newFramePoolSize.Width, newFramePoolSize.Height);
 	}
 	catch (winrt::hresult_error const &ex)
 	{
@@ -427,11 +427,10 @@ HRESULT WindowsGraphicsCapture::RecreateFramePool(_Inout_ GRAPHICS_FRAME_DATA *p
 
 HRESULT WindowsGraphicsCapture::ProcessRecordingTimeout(_Inout_ GRAPHICS_FRAME_DATA *pData)
 {
-	HRESULT hr = DXGI_ERROR_WAIT_TIMEOUT;
 	if (m_RecordingSource->Type == RecordingSourceType::Window) {
 		if (!IsWindow(m_RecordingSource->SourceWindow)) {
 			//The window is gone, gracefully abort.
-			hr = E_ABORT;
+			return E_ABORT;
 		}
 		else if (IsIconic(m_RecordingSource->SourceWindow)) {
 			//IsIconic means the window is minimized, and not rendered, so a blank placeholder texture is used instead.
@@ -447,7 +446,7 @@ HRESULT WindowsGraphicsCapture::ProcessRecordingTimeout(_Inout_ GRAPHICS_FRAME_D
 				desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 				desc.SampleDesc.Count = 1;
 				desc.Usage = D3D11_USAGE_DEFAULT;
-				RETURN_ON_BAD_HR(hr = m_Device->CreateTexture2D(&desc, nullptr, &pData->Frame));
+				RETURN_ON_BAD_HR(m_Device->CreateTexture2D(&desc, nullptr, &pData->Frame));
 			}
 			else {
 				D3D11_TEXTURE2D_DESC desc;
@@ -457,18 +456,17 @@ HRESULT WindowsGraphicsCapture::ProcessRecordingTimeout(_Inout_ GRAPHICS_FRAME_D
 			pData->ContentSize = windowSize;
 			m_TextureManager->BlankTexture(pData->Frame, RECT{ 0,0,windowSize.cx,windowSize.cy }, 0, 0);
 			QueryPerformanceCounter(&pData->Timestamp);
-			hr = S_OK;
-		}
-		else if (IsRecordingSessionStale()) {
-			//The session has stopped producing frames for a while, so it should be restarted.
-			StopCapture();
-			StartCapture(*m_RecordingSource);
-			LOG_INFO("Restarted Windows Graphics Capture");
-			QueryPerformanceCounter(&m_LastCaptureSessionRestart);
-			hr = DXGI_ERROR_WAIT_TIMEOUT;
+			return S_OK;
 		}
 	}
-	return hr;
+	if (IsRecordingSessionStale()) {
+		//The session has stopped producing frames for a while, so it should be restarted.
+		StopCapture();
+		StartCapture(*m_RecordingSource);
+		LOG_INFO("Restarted Windows Graphics Capture");
+		QueryPerformanceCounter(&m_LastCaptureSessionRestart);
+	}
+	return DXGI_ERROR_WAIT_TIMEOUT;
 }
 
 /// <summary>
@@ -494,6 +492,9 @@ void WindowsGraphicsCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool co
 {
 	QueryPerformanceCounter(&m_LastSampleReceivedTimeStamp);
 	SetEvent(m_NewFrameEvent);
+	if (m_session.IsCursorCaptureEnabled() != m_RecordingSource->IsCursorCaptureEnabled.value_or(true)) {
+		m_session.IsCursorCaptureEnabled(m_RecordingSource->IsCursorCaptureEnabled.value_or(true));
+	}
 }
 
 HRESULT WindowsGraphicsCapture::GetNextFrame(_In_ DWORD timeoutMillis, _Inout_ GRAPHICS_FRAME_DATA *pData)
