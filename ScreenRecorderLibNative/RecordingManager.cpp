@@ -266,7 +266,7 @@ HRESULT RecordingManager::BeginRecording(_In_opt_ std::wstring path, _In_opt_ IS
 		}
 		catch (const exception &e) {
 			// handle error
-			LOG_ERROR(L"Exception in RecordTask: %s", e.what());
+			LOG_ERROR(L"Exception in RecordTask: %s", s2ws(e.what()).c_str());
 		}
 		catch (...) {
 			LOG_ERROR(L"Exception in RecordTask");
@@ -456,6 +456,7 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 			LOG_ERROR(L"Audio capture failed to start: hr = 0x%08x", hr);
 		}
 	}
+	pAudioManager->StartCapture();
 	if (pStream) {
 		RETURN_RESULT_ON_BAD_HR(hr = m_OutputManager->BeginRecording(pStream, videoOutputFrameSize), L"Failed to initialize video sink writer");
 	}
