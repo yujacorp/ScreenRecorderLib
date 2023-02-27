@@ -17,6 +17,7 @@ OutputManager::OutputManager() :
 	m_CallBack(nullptr),
 	m_FinalizeEvent(nullptr),
 	m_SinkWriter(nullptr),
+	m_Sink(nullptr),
 	m_OutStream(nullptr),
 	m_EncoderOptions(nullptr),
 	m_AudioOptions(nullptr),
@@ -54,6 +55,14 @@ OutputManager::~OutputManager()
 	CleanRefs();
 	CloseHandle(m_FinalizeEvent);
 	m_FinalizeEvent = nullptr;
+	m_CallBack = nullptr;
+	m_MediaTransform = nullptr;
+	m_SinkWriter = nullptr;
+	m_Sink = nullptr;
+	m_DeviceManager = nullptr;
+	m_TimeSrc = nullptr;
+	m_PresentationClock = nullptr;
+
 	DeleteCriticalSection(&m_CriticalSection);
 }
 
@@ -77,12 +86,7 @@ HRESULT OutputManager::Initialize(
 	if (!m_DeviceManager) {
 		RETURN_ON_BAD_HR(MFCreateDXGIDeviceManager(&m_ResetToken, &m_DeviceManager));
 	}
-	if (m_SinkWriter) {
-		m_SinkWriter->Flush(m_VideoStreamIndex);
-	}
-	if (m_MediaTransform) {
-		m_MediaTransform->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
-	}
+	
 	if (!m_TimeSrc) {
 		RETURN_ON_BAD_HR(MFCreateSystemTimeSource(&m_TimeSrc));
 	}
@@ -168,20 +172,20 @@ HRESULT OutputManager::FinalizeRecording()
 			LOG_ERROR("Failed to finalize sink writer");
 		}
 		//Dispose of MPEG4MediaSink 
-		IMFMediaSink *pSink;
-		if (SUCCEEDED(m_SinkWriter->GetServiceForStream(MF_SINK_WRITER_MEDIASINK, GUID_NULL, IID_PPV_ARGS(&pSink)))) {
-			//Release the sink writer before calling Shutdown on the media sink. 
-			//https://learn.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-mfcreatesinkwriterfrommediasink
-			m_SinkWriter.Release();
-			finalizeResult = pSink->Shutdown();
-			SafeRelease(&pSink);
+		if (m_Sink) 
+		{
+			m_SinkWriter = nullptr;
+			finalizeResult = m_Sink->Shutdown();
+			m_Sink = nullptr;
 			if (FAILED(finalizeResult)) {
 				LOG_ERROR("Failed to shut down IMFMediaSink");
 			}
 			else {
 				LOG_DEBUG("Shut down IMFMediaSink");
 			}
-		};
+		}
+		m_SinkWriter = nullptr;
+		
 		if (!m_OutputFullPath.empty()) {
 			bool isFileAvailable = false;
 			for (int i = 0; i < 10; i++) {
@@ -621,7 +625,7 @@ HRESULT OutputManager::InitializeVideoSinkWriter(
 	RETURN_ON_BAD_HR(pAttributes->SetUnknown(MF_SINK_WRITER_ASYNC_CALLBACK, pCallback));
 
 	RETURN_ON_BAD_HR(MFCreateSinkWriterFromMediaSink(pMp4StreamSink, pAttributes, &pSinkWriter));
-	pMp4StreamSink.Release();
+	m_Sink = pMp4StreamSink;
 
 	LOG_TRACE("Input video format:")
 		LogMediaType(pVideoMediaTypeIn);
@@ -1478,6 +1482,12 @@ void OutputManager::CleanRefs()
 		}
 		m_Factory->Release();
 		m_Factory = nullptr;
+	}
+	if (m_SinkWriter) {
+		m_SinkWriter->Flush(m_VideoStreamIndex);
+	}
+	if (m_MediaTransform) {
+		m_MediaTransform->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
 	}
 }
 

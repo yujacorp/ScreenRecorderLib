@@ -581,12 +581,12 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 		if (pCurrentFrameCopy) {
 			//if (max(duration_cast<nanoseconds>(chrono::steady_clock::now() - lastFrame).count() / 100, 0) % 1000 < 15)
 			//{
-			BYTE *buffer;
-			long width, height;
-			hr = m_OutputManager->WriteFrameToBuffer(pCurrentFrameCopy, &buffer, &width, &height);
-
-			if (RawFrameUpdateCallback != nullptr)
+			if (RawFrameUpdateCallback != nullptr && GetOutputOptions()->GetUseRawFrame())
 			{
+				BYTE *buffer;
+				long width, height;
+				hr = m_OutputManager->WriteFrameToBuffer(pCurrentFrameCopy, &buffer, &width, &height);
+
 				RawFrameUpdateCallback(buffer, width, height);
 				delete buffer;
 			}

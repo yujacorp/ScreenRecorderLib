@@ -79,6 +79,7 @@ private:
 	nlohmann::fifo_map<std::wstring, int> m_FrameDelays;
 
 	CComPtr<IMFSinkWriter> m_SinkWriter;
+	CComPtr<IMFMediaSink> m_Sink;
 	CComPtr<IMFSinkWriterCallback> m_CallBack;
 	CComPtr<IMFTransform> m_MediaTransform;
 	CComPtr<IMFDXGIDeviceManager> m_DeviceManager;

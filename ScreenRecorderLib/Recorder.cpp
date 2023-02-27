@@ -32,17 +32,17 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			if (!options->VideoEncoderOptions->Encoder) {
 				options->VideoEncoderOptions->Encoder = gcnew H264VideoEncoder();
 			}
-			ENCODER_OPTIONS* encoderOptions = nullptr;
+			std::shared_ptr<ENCODER_OPTIONS> encoderOptions = nullptr;
 
 			switch (options->VideoEncoderOptions->Encoder->EncodingFormat)
 			{
 				default:
 				case VideoEncoderFormat::H264: {
-					encoderOptions = new H264_ENCODER_OPTIONS();
+					encoderOptions = std::make_shared<H264_ENCODER_OPTIONS>();
 					break;
 				}
 				case VideoEncoderFormat::H265: {
-					encoderOptions = new H265_ENCODER_OPTIONS();
+					encoderOptions = std::make_shared<H265_ENCODER_OPTIONS> ();
 					break;
 				}
 			}
@@ -60,7 +60,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			m_Rec->SetEncoderOptions(encoderOptions);
 		}
 		if (options->SnapshotOptions) {
-			SNAPSHOT_OPTIONS* snapshotOptions = new SNAPSHOT_OPTIONS();
+			std::shared_ptr<SNAPSHOT_OPTIONS> snapshotOptions = std::make_shared<SNAPSHOT_OPTIONS>();
 			snapshotOptions->SetTakeSnapshotsWithVideo(options->SnapshotOptions->SnapshotsWithVideo);
 			snapshotOptions->SetSnapshotsWithVideoInterval(options->SnapshotOptions->SnapshotsIntervalMillis);
 			if (options->SnapshotOptions->SnapshotsDirectory != nullptr) {
@@ -88,7 +88,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			m_Rec->SetRecordingSources(CreateRecordingSourceList(options->SourceOptions->RecordingSources));
 		}
 		if (options->OutputOptions) {
-			OUTPUT_OPTIONS* outputOptions = new OUTPUT_OPTIONS();
+			std::shared_ptr<OUTPUT_OPTIONS> outputOptions = std::make_shared<OUTPUT_OPTIONS>();
 			if (options->OutputOptions->SourceRect && !options->OutputOptions->SourceRect->Equals(ScreenRect::Empty)) {
 				outputOptions->SetSourceRectangle(options->OutputOptions->SourceRect->ToRECT());
 			}
@@ -97,13 +97,14 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			}
 			outputOptions->SetRecorderMode(static_cast<RecorderModeInternal>(options->OutputOptions->RecorderMode));
 			outputOptions->SetIsPreviewOnly(static_cast<bool>(options->OutputOptions->IsPreviewOnly));
+			outputOptions->SetUseRawFrame(static_cast<bool>(options->OutputOptions->UseRawFrame));
 			outputOptions->SetIsCustomSelectedArea(static_cast<bool>(options->OutputOptions->IsCustomSelectedArea));
 			outputOptions->SetStretch(static_cast<TextureStretchMode>(options->OutputOptions->Stretch));
 			outputOptions->SetScaledScreenSize(SIZE{ (long)round(options->OutputOptions->OutputScaledScreenSize->Width),(long)round(options->OutputOptions->OutputScaledScreenSize->Height) });
 			m_Rec->SetOutputOptions(outputOptions);
 		}
 		if (options->AudioOptions) {
-			AUDIO_OPTIONS* audioOptions = new AUDIO_OPTIONS();
+			std::shared_ptr<AUDIO_OPTIONS> audioOptions = std::make_shared<AUDIO_OPTIONS>();
 
 			if (options->AudioOptions->IsAudioEnabled.HasValue) {
 				audioOptions->SetAudioEnabled(options->AudioOptions->IsAudioEnabled.Value);
@@ -135,7 +136,7 @@ void Recorder::SetOptions(RecorderOptions^ options) {
 			m_Rec->SetAudioOptions(audioOptions);
 		}
 		if (options->MouseOptions) {
-			MOUSE_OPTIONS* mouseOptions = new MOUSE_OPTIONS();
+			std::shared_ptr<MOUSE_OPTIONS> mouseOptions = std::make_shared<MOUSE_OPTIONS>();
 
 			if (options->MouseOptions->IsMousePointerEnabled.HasValue) {
 				mouseOptions->SetMousePointerEnabled(options->MouseOptions->IsMousePointerEnabled.Value);

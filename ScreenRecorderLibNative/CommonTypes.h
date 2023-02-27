@@ -473,6 +473,7 @@ protected:
 	TextureStretchMode m_Stretch = TextureStretchMode::Uniform;
 	RecorderModeInternal m_RecorderMode = RecorderModeInternal::Video;
 	bool m_IsPreviewOnly = true;
+	bool m_UseRawFrame = false;
 	bool m_IsCustomSelectedArea = false;
 	bool m_IsVideoCaptureEnabled = true;
 public:
@@ -486,9 +487,11 @@ public:
 	TextureStretchMode GetStretch() { return m_Stretch; }
 	RecorderModeInternal GetRecorderMode() { return m_RecorderMode; }
 	bool GetIsPreviewOnly() { return m_IsPreviewOnly; }
+	bool GetUseRawFrame() { return m_UseRawFrame; }
 	bool GetIsCustomSelectedArea() { return m_IsCustomSelectedArea; }
 	void SetRecorderMode(RecorderModeInternal recorderMode) { m_RecorderMode = recorderMode; }
 	void SetIsPreviewOnly(bool isPreviewOnly) { m_IsPreviewOnly = isPreviewOnly; }
+	void SetUseRawFrame(bool useRawFrame) { m_UseRawFrame = useRawFrame; }
 	void SetIsCustomSelectedArea(bool isCusSelArea) { m_IsCustomSelectedArea = isCusSelArea; }
 	bool IsVideoCaptureEnabled() { return m_IsVideoCaptureEnabled; }
 	void SetVideoCaptureEnabled(bool value) { m_IsVideoCaptureEnabled = value; }

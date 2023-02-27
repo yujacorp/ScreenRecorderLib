@@ -135,6 +135,7 @@ namespace ScreenRecorderLib {
 		ScreenSize^ _outputScaledScreenSize;
 		RecorderMode _recorderMode;
 		bool _isPreviewOnly;
+		bool _useRawFrame;
 		bool _isCustomSeletedArea;
 	public:
 		OutputOptions():DynamicOutputOptions(){
@@ -142,6 +143,7 @@ namespace ScreenRecorderLib {
 			OutputScaledScreenSize = ScreenSize::Empty;
 			RecorderMode = ScreenRecorderLib::RecorderMode::Video;
 			IsPreviewOnly = true;
+			UseRawFrame = false;
 			IsCustomSelectedArea = false;
 		}
 
@@ -200,6 +202,16 @@ namespace ScreenRecorderLib {
 			void set(bool value) {
 				_isPreviewOnly = value;
 				OnPropertyChanged("IsPreviewOnly");
+			}
+		}
+
+		property bool UseRawFrame {
+			bool get() {
+				return _useRawFrame;
+			}
+			void set(bool value) {
+				_useRawFrame = value;
+				OnPropertyChanged("UseRawFrame");
 			}
 		}
 

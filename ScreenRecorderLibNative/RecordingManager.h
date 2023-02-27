@@ -85,15 +85,15 @@ public:
 	void SetLogFilePath(std::wstring value);
 	void SetLogSeverityLevel(int value);
 
-	void SetEncoderOptions(ENCODER_OPTIONS *options) { m_EncoderOptions.reset(options); }
+	void SetEncoderOptions(std::shared_ptr<ENCODER_OPTIONS> options) { m_EncoderOptions.reset(); m_EncoderOptions = move(options); }
 	std::shared_ptr<ENCODER_OPTIONS> GetEncoderOptions() { return m_EncoderOptions; }
-	void SetAudioOptions(AUDIO_OPTIONS *options) { m_AudioOptions.reset(options); }
+	void SetAudioOptions(std::shared_ptr<AUDIO_OPTIONS> options) { m_AudioOptions.reset(); m_AudioOptions = move(options); }
 	std::shared_ptr<AUDIO_OPTIONS> GetAudioOptions() { return m_AudioOptions; }
-	void SetMouseOptions(MOUSE_OPTIONS *options) { m_MouseOptions.reset(options); }
+	void SetMouseOptions(std::shared_ptr<MOUSE_OPTIONS> options) { m_MouseOptions.reset(); m_MouseOptions = move(options); }
 	std::shared_ptr<MOUSE_OPTIONS> GetMouseOptions() { return m_MouseOptions; }
-	void SetSnapshotOptions(SNAPSHOT_OPTIONS *options) { m_SnapshotOptions.reset(options); }
+	void SetSnapshotOptions(std::shared_ptr<SNAPSHOT_OPTIONS> options) { m_SnapshotOptions.reset(); m_SnapshotOptions = move(options); }
 	std::shared_ptr<SNAPSHOT_OPTIONS> GetSnapshotOptions() { return m_SnapshotOptions; }
-	void SetOutputOptions(OUTPUT_OPTIONS *options) { m_OutputOptions.reset(options); }
+	void SetOutputOptions(std::shared_ptr<OUTPUT_OPTIONS> options) { m_OutputOptions.reset(); m_OutputOptions = move(options); }
 	std::shared_ptr<OUTPUT_OPTIONS> GetOutputOptions() { return m_OutputOptions; }
 
 	void SetHwnd(HWND handle) { m_previewWindowHandle = handle; }
