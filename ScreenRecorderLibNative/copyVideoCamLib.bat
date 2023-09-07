@@ -7,7 +7,7 @@ REM set "buildType=Release"
 )
 
 set "dir=%~dp0\..\..\"
-if not exist %dir%\DirectShowDemo\ (
+if not exist %dir%\yuja-directshow-dll\ (
     echo %buildType% VideoCamLib will not be copied -- DirectShowDemo project must exist on the same level as yuja-presenter and lecture-capture-cpp-hub to copy the dll, lib and .h
     goto :end
 ) else (
@@ -15,7 +15,7 @@ if not exist %dir%\DirectShowDemo\ (
     echo on
 )
 
-set "videoCamLibDir=%dir%\DirectShowDemo\ViedeoCamLib"
+set "videoCamLibDir=%dir%\yuja-directshow-dll\ViedeoCamLib"
 set "videoCamLibBinDir=%videoCamLibDir%\bin"
 set "yscScreenRecorderLibNativeDir=%dir%\yuja-presenter\ScreenRecorderLibNative"
 

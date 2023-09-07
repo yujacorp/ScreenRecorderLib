@@ -53,7 +53,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture() :
 
 WindowsGraphicsCapture::WindowsGraphicsCapture(_In_ bool isCursorCaptureEnabled) :WindowsGraphicsCapture()
 {
-	m_IsCursorCaptureEnabled = m_RecordingSource->IsCursorCaptureEnabled.value_or(isCursorCaptureEnabled);
+	m_IsCursorCaptureEnabled = isCursorCaptureEnabled;
 }
 
 WindowsGraphicsCapture::~WindowsGraphicsCapture()

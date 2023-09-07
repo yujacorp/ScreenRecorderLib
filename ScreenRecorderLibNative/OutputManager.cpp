@@ -215,7 +215,7 @@ HRESULT OutputManager::RenderFrame(_In_ FrameWriteModel &model) {
 	MeasureExecutionTime measure(L"RenderFrame");
 	auto recorderMode = GetOutputOptions()->GetRecorderMode();
 	bool isPreviewOnly = GetOutputOptions()->GetIsPreviewOnly();
-	if (m_PtrInfo && m_PtrInfo->Visible) {
+	if (m_PtrInfo && m_PtrInfo->Visible && m_PtrInfo->PtrShapeBuffer != nullptr) {
 		DUPL_RETURN ret = DrawMouse(m_PtrInfo, model.Frame);
 		if (ret != DUPL_RETURN_SUCCESS) {
 			LOG_ERROR(L"Error drawing mouse pointer");
@@ -840,6 +840,7 @@ HRESULT OutputManager::WriteAudioSamplesToVideo(_In_ INT64 frameStartPos, _In_ I
 		// Send the sample to the Sink Writer.
 		hr = m_SinkWriter->WriteSample(streamIndex, pSample);
 	}
+	SafeRelease(&pBuffer);
 
 	DWORD pcbCurrentLength;
 	DWORD pcbMaxLength;
