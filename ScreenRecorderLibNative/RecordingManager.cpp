@@ -172,25 +172,81 @@ HRESULT RecordingManager::ConfigureOutputDir(_In_ std::wstring path) {
 			}
 		}
 	}
-	if (!m_SnapshotOptions->GetSnapshotsDirectory().empty()) {
-		std::error_code ec;
-		if (std::filesystem::exists(m_SnapshotOptions->GetSnapshotsDirectory()) || std::filesystem::create_directories(m_SnapshotOptions->GetSnapshotsDirectory(), ec))
-		{
-			LOG_DEBUG(L"Snapshot output folder is ready");
-		}
-		else
-		{
-			// Failed to create snapshot directory.
-			LOG_ERROR(L"failed to create snapshot output folder");
-			if (RecordingFailedCallback != nullptr)
-				RecordingFailedCallback(L"Failed to create snapshot output folder: " + s2ws(ec.message()), L"");
-			return E_FAIL;
-		}
-	}
+
 	return S_OK;
 }
 
-HRESULT RecordingManager::BeginRecording(_In_opt_ IStream *stream) {
+HRESULT RecordingManager::TakeSnapshot(_In_ std::wstring path)
+{
+	if (path.empty()) {
+		if (!GetSnapshotOptions()->GetSnapshotsDirectory().empty())
+		{
+			path = GetSnapshotOptions()->GetSnapshotsDirectory() + L"\\" + s2ws(CurrentTimeToFormattedString(true)) + GetSnapshotOptions()->GetImageExtension();
+		}
+	}
+	return TakeSnapshot(path, nullptr);
+}
+
+HRESULT RecordingManager::TakeSnapshot(_In_ IStream *stream)
+{
+	return TakeSnapshot(L"", stream);
+}
+
+HRESULT RecordingManager::TakeSnapshot(_In_opt_ std::wstring path, _In_opt_ IStream *stream, _In_opt_ ID3D11Texture2D *pTexture) {
+	if (!m_IsRecording) {
+		return E_NOT_VALID_STATE;
+	}
+	HRESULT hr = E_FAIL;
+	CComPtr<ID3D11Texture2D> processedTexture;
+	if (!pTexture) {
+		CAPTURED_FRAME capturedFrame{};
+		hr = m_CaptureManager->CopyCurrentFrame(&capturedFrame);
+		RETURN_ON_BAD_HR(hr);
+		hr = ProcessTexture(capturedFrame.Frame, &processedTexture, capturedFrame.PtrInfo);
+		SafeRelease(&capturedFrame.Frame);
+	}
+	else {
+		processedTexture = pTexture;
+	}
+	RECT videoInputFrameRect{};
+	RETURN_ON_BAD_HR(hr = InitializeRects(m_CaptureManager->GetOutputSize(), &videoInputFrameRect, nullptr));
+
+	if (!path.empty()) {
+		std::wstring directory = std::filesystem::path(path).parent_path().wstring();
+		if (!std::filesystem::exists(directory))
+		{
+			std::error_code ec;
+			if (std::filesystem::create_directories(directory, ec)) {
+				LOG_DEBUG(L"Snapshot output folder created");
+			}
+			else {
+				// Failed to create snapshot directory.
+				LOG_ERROR(L"failed to create snapshot output folder");
+				return E_FAIL;
+			}
+		}
+		RETURN_ON_BAD_HR(hr = SaveTextureAsVideoSnapshot(processedTexture, path, videoInputFrameRect));
+		LOG_TRACE(L"Wrote snapshot to %s", path.c_str());
+		if (RecordingSnapshotCreatedCallback != nullptr) {
+			RecordingSnapshotCreatedCallback(path);
+		}
+	}
+	else if (stream) {
+		RETURN_ON_BAD_HR(hr = SaveTextureAsVideoSnapshot(processedTexture, stream, videoInputFrameRect));
+		LOG_TRACE(L"Wrote snapshot to stream");
+		if (RecordingSnapshotCreatedCallback != nullptr) {
+			RecordingSnapshotCreatedCallback(L"");
+		}
+	}
+	else {
+		LOG_ERROR("Snapshot failed: No valid stream or path provided.");
+		hr = E_INVALIDARG;
+	}
+
+	return hr;
+}
+
+HRESULT RecordingManager::BeginRecording(_In_ IStream *stream) {
 	return BeginRecording(L"", stream);
 }
 
@@ -532,13 +588,11 @@ REC_RESULT RecordingManager::StartRecorderLoop(_In_ const std::vector<RECORDING_
 		}
 		if (recorderMode == RecorderModeInternal::Video) {
 			if (GetSnapshotOptions()->IsSnapshotWithVideoEnabled() && IsTimeToTakeSnapshot()) {
-				if (SUCCEEDED(renderHr = SaveTextureAsVideoSnapshot(pTextureToRender, videoInputFrameRect))) {
-					previousSnapshotTaken = steady_clock::now();
-				}
-				else {
-					_com_error err(renderHr);
-					LOG_ERROR("Error saving video snapshot: %ls", err.ErrorMessage());
-				}
+				if (GetSnapshotOptions()->GetSnapshotsDirectory().empty())
+					return S_FALSE;
+				wstring snapshotPath = GetSnapshotOptions()->GetSnapshotsDirectory() + L"\\" + s2ws(CurrentTimeToFormattedString(true)) + GetSnapshotOptions()->GetImageExtension();
+				TakeSnapshot(snapshotPath, nullptr, pTextureToRender);
+				previousSnapshotTaken = steady_clock::now();
 			}
 			//m_OutputManager->WriteFrameToImage(pTextureToRender, L"D:\\test\\beforemodel.png");
 			if (pPtrInfo) {

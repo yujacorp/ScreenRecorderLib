@@ -128,6 +128,10 @@ private:
 	HRESULT ConfigureOutputDir(_In_ std::wstring path);
 	REC_RESULT StartRecorderLoop(_In_ const std::vector<RECORDING_SOURCE *> &sources, _In_ const std::vector<RECORDING_OVERLAY *> &overlays, _In_opt_ IStream *pStream);
 
+
+	HRESULT TakeSnapshot(_In_opt_ std::wstring path, _In_opt_ IStream *pStream, _In_opt_ ID3D11Texture2D *pTexture = nullptr);
+	HRESULT BeginRecording(_In_opt_ std::wstring path, _In_opt_ IStream *pStream);
+
 	/// <summary>
 	/// Creates adjusted source and output rects from a recording frame rect. The source rect is normalized to start on [0,0], and the output is adjusted for any cropping.
 	/// </summary>
