@@ -19,12 +19,12 @@ jobs:
         platform: [x64, x86]
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: microsoft/setup-msbuild@v1.1
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+    - uses: microsoft/setup-msbuild@34cfbaee7f672c76950673338facd8a73f637506 # v1.1
     - run: nuget restore ${{ env.SOLUTION_NAME }}.sln
     - run: msbuild /m '/p:Configuration=Release;Platform="${{ matrix.platform }}"' ${{ env.SOLUTION_NAME }}.sln
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
       with:
         name: ScreenRecorderLib.${{matrix.platform}}
         path: ${{ env.PROJECT_NAME }}\bin\${{ matrix.platform }}\Release\ScreenRecorderLib.dll
@@ -34,17 +34,17 @@ jobs:
       runs-on: windows-2019
       needs : build
       steps:
-        - uses: actions/download-artifact@v3
+        - uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
           with:
             name: ScreenRecorderLib.x86
             path: ScreenRecorderLib.x86.zip
-        - uses: actions/download-artifact@v3
+        - uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
           with:
             name: ScreenRecorderLib.x64
             path: ScreenRecorderLib.x64.zip
         - name: Display structure of downloaded files
           run: ls -R
-        - uses: marvinpinto/action-automatic-releases@latest
+        - uses: marvinpinto/action-automatic-releases@d68defdd11f9dcc7f52f35c1b7c236ee7513bcc1 # latest
           with:
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
             prerelease: false
